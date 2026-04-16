@@ -1,7 +1,8 @@
 #ifndef GAME_H
 #define GAME_H
 
-#include "SDL3/SDL.h"
+#include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
 #include <string>
 #include <vector>
 #include "Constants.h"
@@ -14,77 +15,60 @@ public:
     void shutdown();
 
 private:
-    // ── SDL handles ──────────────────────────────────────────────────────────
-    SDL_Window*   window       = nullptr;
-    SDL_Renderer* renderer     = nullptr;
-    SDL_Texture*  playerTexture= nullptr;  // fallback procedural texture
-    SDL_Texture*  spriteSheet  = nullptr;  // player1.png sprite sheet
+    SDL_Window*   window        = nullptr;
+    SDL_Renderer* renderer      = nullptr;
+    SDL_Texture*  playerTexture = nullptr;
+    SDL_Texture*  spriteSheet   = nullptr;
 
-    // ── Core loop state ───────────────────────────────────────────────────────
-    bool     running    = true;
-    bool     fullscreen = false;
-    int      screenW    = DEFAULT_WINDOW_WIDTH;
-    int      screenH    = DEFAULT_WINDOW_HEIGHT;
-    Uint64   ticks      = 0;
-    GameState state     = GameState::Menu;
+    TTF_Font* fontS  = nullptr;
+    TTF_Font* fontM  = nullptr;
+    TTF_Font* fontL  = nullptr;
+    TTF_Font* fontXL = nullptr;
 
-    // ── Camera ───────────────────────────────────────────────────────────────
-    float camX = 0.0f;
-    float camY = 0.0f;
+    bool      running    = true;
+    bool      fullscreen = false;
+    int       screenW    = DEFAULT_WINDOW_WIDTH;
+    int       screenH    = DEFAULT_WINDOW_HEIGHT;
+    Uint64    ticks      = 0;
+    GameState state      = GameState::Menu;
 
-    // ── Mouse ─────────────────────────────────────────────────────────────────
-    float mouseScreenX = 0.0f;
-    float mouseScreenY = 0.0f;
+    float camX=0.0f,camY=0.0f;
+    float mouseScreenX=0.0f,mouseScreenY=0.0f;
 
-    // ── Progression ───────────────────────────────────────────────────────────
-    int   currentLevel = DEFAULT_START_LEVEL;
-    int   lixiCount    = DEFAULT_LIXI;
-    bool  secretLatched= false;
-    bool  hasSave      = false;
+    int   currentLevel  = DEFAULT_START_LEVEL;
+    int   lixiCount     = DEFAULT_LIXI;
+    bool  secretLatched = false;
+    bool  hasSave       = false;
 
-    // ── World / entities ──────────────────────────────────────────────────────
-    Theme      currentTheme = SPRING_THEME;
-    LevelData  levelData;
-    Player     player;
-    Upgrades   upgrades;
+    Theme     currentTheme = SPRING_THEME;
+    LevelData levelData;
+    Player    player;
+    Upgrades  upgrades;
 
     std::vector<Particle> particles;
     std::vector<Petal>    petals;
     std::vector<Star>     menuStars;
 
-    // ── Checkpoint state ──────────────────────────────────────────────────────
-    float checkpointX     = 0.0f;
-    float checkpointY     = 0.0f;
-    bool  checkpointActive= false;
+    float checkpointX=0.0f,checkpointY=0.0f;
+    bool  checkpointActive=false;
 
-    // ── Death / transition ────────────────────────────────────────────────────
-    int   deathTimer      = 0;
-    int   transitionTimer = 0;
-    int   transitionSeason= 0;  // season being entered
+    int   deathTimer=0,transitionTimer=0,transitionSeason=0;
+    int   shopHover=-1;
+    int   levelSelectScroll=0;
 
-    // ── Shop UI ───────────────────────────────────────────────────────────────
-    int   shopHover = -1;
-
-    // ── Shop item names / text ────────────────────────────────────────────────
-    // (built lazily in drawShop)
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  PRIVATE HELPERS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    // Math helpers
     static float randf(float lo, float hi);
     static float clampf(float v, float lo, float hi);
     static float lerpf(float a, float b, float t);
     static SDL_Color alpha(SDL_Color c, Uint8 a);
     static SDL_Color blend(SDL_Color a, SDL_Color b, float t);
+    static std::string findSystemFont();
 
-    // Window
     void computeInitialWindowSize(int& w, int& h) const;
     void refreshWindowMetrics();
     void toggleFullscreen();
 
-    // Flow control
+    TTF_Font* pickFont(float scale) const;
+
     void beginNewGame();
     void loadAndContinue();
     void returnToMenu();
@@ -95,25 +79,22 @@ private:
     void respawnAtCheckpoint();
     void openShop();
     void closeShop();
+    void openPauseMenu();
+    void closePauseMenu();
+    void openLevelSelect();
 
-    // Player state
     void takeDamage(int amount);
     void heal(float amount);
     void activateInvincibility();
-
-    // Shop
     void buyUpgrade(int item);
 
-    // Progression
-    int  getSeasonFromLevel(int level) const;
+    int   getSeasonFromLevel(int level) const;
     Theme themeForLevel(int level) const;
-    void resetSeasonStats(int newSeason);
+    void  resetSeasonStats(int newSeason);
 
-    // Save / Load
     void saveGame();
     void loadGame();
 
-    // Level generation
     LevelData generateLevel(int levelNum);
     LevelData generateSpringLevel(int levelNum);
     LevelData generateSummerLevel(int levelNum);
@@ -121,25 +102,23 @@ private:
     LevelData generateWinterLevel(int levelNum);
     LevelData generateDesertLevel(int levelNum);
 
-    // Ambient
-    void resetAmbient();
+    void  resetAmbient();
     Petal createPetal(bool randomY) const;
 
-    // Input
     void handleEvents();
     void handleMouseClick(float x, float y);
     void handleKeyDown(const SDL_KeyboardEvent& key);
     void updateSecretShortcut(const bool* keys);
 
-    // Core update
     void update();
     void updateAmbient();
     void updateParticles();
     void updatePlayerAnimation();
     void updateCamera();
+    void updateSpringNpcAnim();
+    void updateChildNpcAnim();
 
-    // Season updates
-    void updatePlaying(const bool* keys);   // Spring
+    void updatePlaying(const bool* keys);
     void updateSummer(const bool* keys);
     void updateAutumn(const bool* keys);
     void updateWinter(const bool* keys);
@@ -147,8 +126,7 @@ private:
     void updateMarket(const bool* keys);
     void updateShop(float mx, float my);
 
-    // Sub-system updates (called by season handlers)
-    void releaseChargedJump(bool isDesert = false);
+    void releaseChargedJump(bool isDesert=false);
     void resolvePlayerCollisions();
     void resolvePlayerBuoyCollisions();
     void resolvePlayerCamelCollisions();
@@ -156,34 +134,33 @@ private:
     void updateFireballs();
     void updateSpinyLeaves();
     void updateCamels();
-    void updateBuoys();
+    void updateBuoys(bool qPressed);
     void updateCheckpoints();
     bool reachedGate() const;
 
-    // Particle spawners
     void spawnChargeParticle(const SDL_Color& c);
     void spawnJumpBurst(int count, const SDL_Color& c, float sx, float sy);
     void spawnPurchaseBurst(float x, float y);
     void spawnDamageBurst();
     void spawnSnowParticle();
 
-    // Button rects
-    SDL_FRect playButtonRect()     const;
-    SDL_FRect continueButtonRect() const;
-    SDL_FRect shopButtonRect()     const;
-    SDL_FRect exitButtonRect()     const;
-    SDL_FRect promptYesRect()      const;
-    SDL_FRect promptNoRect()       const;
+    SDL_FRect menuPrimaryBtnRect()  const;
+    SDL_FRect menuNewGameBtnRect()  const;
+    SDL_FRect menuShopBtnRect()     const;
+    SDL_FRect menuLevelBtnRect()    const;
+    SDL_FRect menuExitBtnRect()     const;
+    SDL_FRect pauseResumeBtnRect()  const;
+    SDL_FRect pauseRestartBtnRect() const;
+    SDL_FRect pauseExitBtnRect()    const;
+    SDL_FRect promptYesRect()       const;
+    SDL_FRect promptNoRect()        const;
 
     bool pointInRect(float x, float y, const SDL_FRect& r) const;
     bool intersects(float ax,float ay,float aw,float ah,
                     float bx,float by,float bw,float bh) const;
 
-    // ── Render (implemented across GameRender.cpp & SeasonRender.cpp) ─────────
-
     void draw();
 
-    // Primitives
     void setColor(const SDL_Color& c);
     void fillRect(float x,float y,float w,float h,const SDL_Color& c);
     void fillCircle(float cx,float cy,float r,const SDL_Color& c);
@@ -192,11 +169,11 @@ private:
     void drawThickLine(float x1,float y1,float x2,float y2,float th,const SDL_Color& c);
     void drawGradientVertical(const SDL_Color& top,const SDL_Color& bot);
     void drawText(float x,float y,const std::string& s,const SDL_Color& c,float scale=1.0f);
-    float textWidth(const std::string& s, float scale=1.0f) const;
+    float textWidth(const std::string& s,float scale=1.0f) const;
     void drawCenteredText(float cx,float y,const std::string& s,const SDL_Color& c,float scale=1.0f);
+    void drawDialogueBubble(float x,float y,const std::string& text,const SDL_Color& bg);
 
-    // Backgrounds
-    void drawParallaxStars(const std::vector<Star>& stars, float wW, float wH);
+    void drawParallaxStars(const std::vector<Star>& stars,float wW,float wH);
     void drawMenuBackground();
     void drawWorldBackground();
     void drawSpringBackdrop();
@@ -204,21 +181,20 @@ private:
     void drawAutumnBackground();
     void drawWinterBackground();
     void drawDesertBackground();
-    void drawWinterEffect();        // overlay snow-storm effect
-    void drawDesertHeat();          // overlay heat shimmer
+    void drawWinterEffect();
+    void drawDesertHeat();
 
-    // World elements
     void drawTree(float x,float y,float len,float angleDeg,float branchW,int depth);
-    void drawPetal(const Petal& p, bool screenSpace);
-    void drawMetalPlatform(const Platform& pf, float x,float y,float w,float h);
+    void drawPetal(const Petal& p,bool screenSpace);
+    void drawMetalPlatform(const Platform& pf,float x,float y,float w,float h);
     void drawSpringPlatform(float x,float y,float w,float h,bool isGround);
-    void drawBuoyPlatform(const Platform& pf, float sx, float sy);
-    void drawMooncakePlatform(const Platform& pf, float sx, float sy);
+    void drawBuoyPlatform(const Platform& pf,float sx,float sy);
+    void drawMooncakePlatform(const Platform& pf,float sx,float sy);
+    void drawSandGround(float sx,float sy,float w,float h);
     void drawPlatforms();
     void drawWaterZones();
     void drawSnowZones();
 
-    // Entities
     void drawSpringNpc();
     void drawChildNpcs();
     void drawStalls();
@@ -231,21 +207,20 @@ private:
     void drawParticles();
     void drawGate();
 
-    // Player
-    void renderPlayerTexture();  // procedural fallback
+    void renderPlayerTexture();
     void drawAimDots();
     void drawPlayer();
 
-    // HUD
     void drawHud();
     void drawHealthBar();
-    void drawStatBars();          // heat / hunger / thirst / jumps (all seasons)
+    void drawStatBars();
 
-    // Menus / screens
     void drawMenu();
     void drawButton(const SDL_FRect& r,const std::string& label,bool hover,const SDL_Color& fill);
+    void drawPauseMenu();
     void drawMarketPrompt();
     void drawShop();
+    void drawLevelSelect();
     void drawDead();
     void drawWin();
     void drawSeasonTransition();
