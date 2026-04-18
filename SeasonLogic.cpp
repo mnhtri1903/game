@@ -9,64 +9,72 @@ LevelData SquareJumpGame::generateSummerLevel(int levelNum) {
     int relLevel=levelNum-30;
 
     int pfCount=PLATFORM_COUNT_MIN+(std::rand()%(PLATFORM_COUNT_MAX-PLATFORM_COUNT_MIN+1));
-    data.worldH=static_cast<float>(screenH)*1.6f+pfCount*60.0f;
+    data.worldH=static_cast<float>(screenH)+280.0f;
 
-    float sandY=data.worldH-SUMMER_SAND_HEIGHT;
-    float waterLineY=sandY-40.0f;
+    float waterLineY=data.worldH-270.0f;
     data.waterLineY=waterLineY;
 
-    Platform sandGround{};
-    sandGround.x=0; sandGround.y=sandY; sandGround.w=data.worldW+6000;
-    sandGround.h=SUMMER_SAND_HEIGHT; sandGround.isGround=true;
-    data.platforms.push_back(sandGround);
+    Platform beach{};
+    beach.x=0.0f;
+    beach.y=waterLineY-16.0f;
+    beach.w=SUMMER_START_BEACH_WIDTH;
+    beach.h=SUMMER_START_BEACH_HEIGHT;
+    beach.isGround=true;
+    beach.baseX=beach.x;
+    beach.baseY=beach.y;
+    data.platforms.push_back(beach);
 
     WaterZone sea{};
-    sea.x=-200; sea.y=waterLineY; sea.w=10000; sea.h=40+SUMMER_SAND_HEIGHT;
-    sea.isDangerous=(relLevel>20);
+    sea.x=SUMMER_START_BEACH_WIDTH-10.0f;
+    sea.y=waterLineY;
+    sea.w=10000.0f;
+    sea.h=data.worldH-waterLineY+160.0f;
+    sea.isDangerous=(relLevel>14);
     data.waterZones.push_back(sea);
 
-    float curX=300, curY=waterLineY-80;
-    float highX=0;
-    for (int i=0;i<pfCount-1;i++) {
-        float pw=randf(80,130);
-        float ph=28;
+    float curX=SUMMER_START_BEACH_WIDTH+70.0f;
+    float highX=SUMMER_START_BEACH_WIDTH;
+    for (int i=0;i<pfCount;i++) {
+        float pw=randf(76,108);
+        float ph=28.0f;
         Platform pf{};
-        pf.x=curX; pf.y=curY; pf.w=pw; pf.h=ph;
+        pf.x=curX;
+        pf.y=waterLineY-randf(10.0f,20.0f);
+        pf.w=pw;
+        pf.h=ph;
         pf.isBuoy=true;
         pf.buoyBobOffset=randf(0,PI*2);
+        pf.baseX=pf.x;
+        pf.baseY=pf.y;
         data.platforms.push_back(pf);
         highX=curX+pw;
-        float rise=randf(30,60);
-        if (curY-rise<80) rise=randf(15,30);
-        curX+=pw+randf(PLATFORM_GAP_MIN,PLATFORM_GAP_MAX);
-        curY-=rise;
-    }
-    float finalPw=randf(100,140);
-    Platform finalPf{};
-    finalPf.x=curX; finalPf.y=curY; finalPf.w=finalPw; finalPf.h=28;
-    finalPf.isBuoy=true; finalPf.buoyBobOffset=randf(0,PI*2);
-    data.platforms.push_back(finalPf);
-    highX=curX+finalPw;
-
-    data.gate={curX+finalPw*0.5f-28,curY-76,56,76};
-    data.worldW=highX+900;
-    data.platforms.front().w=data.worldW+200;
-
-    if (relLevel>10) {
-        WaterZone dw{};
-        dw.x=data.worldW*0.35f; dw.y=waterLineY-60; dw.w=400; dw.h=60;
-        dw.isDangerous=true;
-        data.waterZones.push_back(dw);
+        curX+=pw+randf(86,126);
     }
 
-    data.startX=60; data.startY=sandY-PLAYER_HEIGHT-10;
+    Platform boat{};
+    boat.x=curX+120.0f;
+    boat.y=waterLineY-34.0f;
+    boat.w=SUMMER_BOAT_WIDTH;
+    boat.h=24.0f;
+    boat.isBoat=true;
+    boat.baseX=boat.x;
+    boat.baseY=boat.y;
+    data.platforms.push_back(boat);
+    highX=boat.x+boat.w;
+
+    data.gate={boat.x+boat.w*0.5f-28,boat.y-76,56,76};
+    data.worldW=highX+360.0f;
+    data.waterZones.front().w=data.worldW+260.0f;
+
+    data.startX=18.0f;
+    data.startY=beach.y-PLAYER_HEIGHT-2.0f;
 
     for (int i=0;i<WORLD_STAR_COUNT/2;i++)
         data.stars.push_back({randf(0,data.worldW),randf(0,data.worldH),
                               randf(1,3),randf(0.2f,0.8f),randf(0,PI*2)});
-    if (data.platforms.size()>4) {
-        size_t mid=data.platforms.size()/2;
-        const Platform& cp=data.platforms[mid];
+    if (data.platforms.size()>5) {
+        size_t mid=1+data.platforms.size()/2;
+        const Platform& cp=data.platforms[std::min(mid,data.platforms.size()-2)];
         data.checkpoints.push_back({cp.x+cp.w*0.5f,cp.y});
     }
     return data;
@@ -216,42 +224,29 @@ static void applyPhysics(Player& player, float groundFriction) {
 }
 
 void SquareJumpGame::updateBuoys(bool qPressed) {
+    (void)qPressed;
     for (int bi=0;bi<static_cast<int>(levelData.platforms.size());bi++) {
         Platform& pf=levelData.platforms[bi];
         if (!pf.isBuoy||pf.buoyGone) continue;
-
-        if (!pf.buoyActivated) {
-            float bob=std::sin(ticks*0.04f+pf.buoyBobOffset)*5.0f;
-            pf.y+=bob*0.05f;
-
-            if (qPressed&&player.ridingBuoyIndex==bi) {
-                pf.buoyActivated=true;
-                pf.buoyFlyTimer=BUOY_FLY_DURATION;
-                pf.buoyVx=BUOY_FLY_SPEED_X;
-                pf.buoyVy=BUOY_FLY_SPEED_Y;
-            }
-        } else {
-            pf.x+=pf.buoyVx;
-            pf.y+=pf.buoyVy;
-            pf.buoyVy+=0.08f;
-            pf.buoyFlyTimer--;
-            if (pf.buoyFlyTimer<=0) {
-                pf.buoyGone=true;
-                if (player.ridingBuoyIndex==bi) {
-                    player.ridingBuoyIndex=-1;
-                    player.onGround=false;
-                }
-            }
-        }
+        float oldX=pf.x, oldY=pf.y;
+        float centerX=pf.baseX+pf.w*0.5f;
+        float shoreFactor=1.0f-clampf((centerX-getSummerShoreX())/SUMMER_WAVE_SHORE_RANGE,0.0f,1.0f);
+        float surge=std::max(0.0f,std::sin(ticks*0.09f-centerX*0.018f+pf.buoyBobOffset*0.5f));
+        float drift=std::sin(ticks*0.025f+pf.buoyBobOffset)*SUMMER_BUOY_DRIFT_RANGE*0.55f;
+        pf.x=pf.baseX+drift+surge*shoreFactor*(6.0f+pf.w*0.03f);
+        pf.y=getSummerWaterSurfaceY(centerX)-pf.h*0.52f;
+        pf.buoyVx=pf.x-oldX;
+        pf.buoyVy=pf.y-oldY;
+        pf.buoyActivated=false;
     }
 }
 
 void SquareJumpGame::updateSummer(const bool* keys) {
     bool spaceDown=keys[SDL_SCANCODE_SPACE];
-    bool qDown    =keys[SDL_SCANCODE_Q];
     int  effCharge=upgrades.effectiveMaxCharge();
 
     player.ridingBuoyIndex=-1;
+    if (summerWaveKickCooldown>0) summerWaveKickCooldown--;
 
     if (player.onGround) { player.vx*=GROUND_FRICTION; if(std::fabs(player.vx)<0.1f)player.vx=0; }
     else player.vx*=AIR_FRICTION;
@@ -265,6 +260,7 @@ void SquareJumpGame::updateSummer(const bool* keys) {
     player.x=std::max(0.0f,player.x);
     if (player.x>levelData.gate.x+800){player.x=levelData.gate.x+800;player.vx=0;}
 
+    updateBuoys(false);
     resolvePlayerCollisions();
     resolvePlayerBuoyCollisions();
 
@@ -285,7 +281,17 @@ void SquareJumpGame::updateSummer(const bool* keys) {
         else { player.charging=false; player.chargeTime=0; }
     }
 
-    updateBuoys(qDown&&!player.prevSpace);
+    float playerCenterX=player.x+player.width*0.5f;
+    float playerFeetY=player.y+player.height;
+    bool nearShoreBreak=playerCenterX>getSummerShoreX()-40.0f&&playerCenterX<getSummerShoreX()+SUMMER_WAVE_BREAK_RANGE;
+    float breaker=getSummerWavePush(playerCenterX);
+    if (summerWaveKickCooldown<=0&&nearShoreBreak&&playerFeetY>levelData.waterLineY-36.0f&&breaker>0.82f) {
+        player.vx=std::max(player.vx,4.5f+breaker*2.6f);
+        player.vy=std::min(player.vy,-2.0f-breaker*1.8f);
+        player.onGround=false;
+        player.ridingBuoyIndex=-1;
+        summerWaveKickCooldown=28;
+    }
 
     bool inWater=false;
     for (const WaterZone& wz:levelData.waterZones) {

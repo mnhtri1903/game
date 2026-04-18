@@ -11,6 +11,26 @@ float SquareJumpGame::randf(float lo, float hi) {
 }
 float SquareJumpGame::clampf(float v, float lo, float hi) { return std::max(lo,std::min(hi,v)); }
 float SquareJumpGame::lerpf(float a, float b, float t)   { return a+(b-a)*t; }
+float SquareJumpGame::getSummerShoreX() const {
+    for (const Platform& pf:levelData.platforms)
+        if (pf.isGround) return pf.x+pf.w;
+    return 0.0f;
+}
+float SquareJumpGame::getSummerWaveAmplitude(float worldX) const {
+    float shoreFactor=1.0f-clampf((worldX-getSummerShoreX())/SUMMER_WAVE_SHORE_RANGE,0.0f,1.0f);
+    return SUMMER_WAVE_BASE_HEIGHT+shoreFactor*SUMMER_WAVE_SHORE_BOOST;
+}
+float SquareJumpGame::getSummerWaterSurfaceY(float worldX) const {
+    float amp=getSummerWaveAmplitude(worldX);
+    float swell=std::sin(ticks*0.045f-worldX*0.014f+0.8f);
+    float chop=std::sin(ticks*0.12f-worldX*0.031f+2.1f);
+    return levelData.waterLineY+swell*amp+chop*(2.5f+amp*0.16f);
+}
+float SquareJumpGame::getSummerWavePush(float worldX) const {
+    float shoreFactor=1.0f-clampf((worldX-getSummerShoreX())/SUMMER_WAVE_BREAK_RANGE,0.0f,1.0f);
+    float pulse=std::max(0.0f,std::sin(ticks*0.09f-worldX*0.018f+0.5f));
+    return pulse*pulse*(0.18f+shoreFactor*1.05f);
+}
 SDL_Color SquareJumpGame::alpha(SDL_Color c, Uint8 a)    { c.a=a; return c; }
 SDL_Color SquareJumpGame::blend(SDL_Color a, SDL_Color b, float t) {
     t=clampf(t,0,1);
@@ -197,6 +217,7 @@ void SquareJumpGame::startGame(int level) {
     player.lastAirJumpTick=AIR_JUMP_COOLDOWN;
     player.maxHealth=upgrades.effectiveMaxHealth();
     player.ridingBuoyIndex=-1;
+    summerWaveKickCooldown=0;
     if (player.health<=0) player.health=player.maxHealth;
     if (cur!=prevSeason) resetSeasonStats(cur);
     checkpointActive=false; particles.clear();
@@ -247,6 +268,7 @@ void SquareJumpGame::respawnAtCheckpoint() {
         player.vx=player.vy=0; player.health=std::max(10,player.maxHealth/2);
     }
     player.ridingBuoyIndex=-1;
+    summerWaveKickCooldown=0;
 }
 
 void SquareJumpGame::takeDamage(int amount) {
@@ -420,8 +442,8 @@ void SquareJumpGame::handleMouseClick(float x, float y) {
             }
         }
         SDL_FRect upBtn={screenW*0.5f-60,90,120,36};
-        SDL_FRect dnBtn={screenW*0.5f-60,screenH-50,120,36};
-        if (pointInRect(x,y,upBtn)) levelSelectScroll=std::min(0,levelSelectScroll+cellH*2);
+        SDL_FRect dnBtn={screenW*0.5f-60.0f,(float)screenH-50.0f,120.0f,36.0f};
+        if (pointInRect(x,y,upBtn)) levelSelectScroll=std::min(0,levelSelectScroll+static_cast<int>(cellH*2));
         if (pointInRect(x,y,dnBtn)) levelSelectScroll-=static_cast<int>(cellH*2);
     } else if (state==GameState::MarketPrompt) {
         if (pointInRect(x,y,promptYesRect())) startMarket();
@@ -580,7 +602,7 @@ void SquareJumpGame::resolvePlayerCollisions() {
     for (Platform& pf:levelData.platforms) {
         if (pf.buoyGone) continue;
         if (!pf.mooncakeActive&&pf.isMooncake) continue;
-        if (pf.isBuoy&&pf.buoyActivated) continue;
+        if (pf.isBuoy) continue;
         float pcx=player.x+player.width*0.5f, pcy=player.y+player.height*0.5f;
         float fcx=pf.x+pf.w*0.5f, fcy=pf.y+pf.h*0.5f;
         float dx=pcx-fcx, dy=pcy-fcy;
@@ -595,6 +617,20 @@ void SquareJumpGame::resolvePlayerCollisions() {
                     if (pf.isIcy&&getSeasonFromLevel(currentLevel)==SEASON_WINTER)
                         player.vx*=(WINTER_GROUND_FRICTION/GROUND_FRICTION);
                 }
+            }
+        }
+        // Snap-to-ground: fixes exact-boundary (oy==0) and floating-point gap cases.
+        // When the player is precisely ON the platform surface the standard AABB overlap
+        // check fails because |dy| == hwy (no penetration). We snap them down here.
+        else if (std::fabs(dx)<hwx) {
+            float playerBottom=player.y+player.height;
+            float gap=pf.y-playerBottom;          // distance above platform top
+            if (gap>=0.0f&&gap<=2.0f&&player.vy>=0.0f) {
+                player.y=pf.y-player.height;
+                player.vy=0.0f;
+                player.onGround=true;
+                if (pf.isIcy&&getSeasonFromLevel(currentLevel)==SEASON_WINTER)
+                    player.vx*=(WINTER_GROUND_FRICTION/GROUND_FRICTION);
             }
         }
     }
@@ -616,7 +652,7 @@ void SquareJumpGame::resolvePlayerCamelCollisions() {
 void SquareJumpGame::resolvePlayerBuoyCollisions() {
     for (int bi=0;bi<static_cast<int>(levelData.platforms.size());bi++) {
         Platform& pf=levelData.platforms[bi];
-        if (!pf.isBuoy||!pf.buoyActivated||pf.buoyGone) continue;
+        if (!pf.isBuoy||pf.buoyGone) continue;
         float pcx=player.x+player.width*0.5f, pcy=player.y+player.height*0.5f;
         float fcx=pf.x+pf.w*0.5f, fcy=pf.y+pf.h*0.5f;
         float dx=pcx-fcx, dy=pcy-fcy;
@@ -625,8 +661,17 @@ void SquareJumpGame::resolvePlayerBuoyCollisions() {
             float ox=hwx-std::fabs(dx), oy=hwy-std::fabs(dy);
             if (ox<oy) { player.x+=(dx>0?ox:-ox); player.vx=0; }
             else if (dy<0) {
-                player.y-=oy; player.vy=pf.buoyVy;
-                player.vx+=(pf.buoyVx-player.vx)*0.3f;
+                player.y=pf.y-player.height; player.vy=pf.buoyVy;
+                player.vx+=pf.buoyVx*0.75f;
+                player.onGround=true;
+                player.ridingBuoyIndex=bi;
+            }
+        } else if (std::fabs(dx)<hwx) {
+            float playerBottom=player.y+player.height;
+            float gap=pf.y-playerBottom;
+            if (gap>=-1.0f&&gap<=5.0f&&player.vy>=pf.buoyVy-0.5f) {
+                player.y=pf.y-player.height; player.vy=pf.buoyVy;
+                player.vx+=pf.buoyVx*0.75f;
                 player.onGround=true;
                 player.ridingBuoyIndex=bi;
             }
@@ -638,9 +683,21 @@ void SquareJumpGame::releaseChargedJump(bool isDesert) {
     int effCharge=upgrades.effectiveMaxCharge();
     float ratio=static_cast<float>(player.chargeTime)/static_cast<float>(effCharge);
     float power=JUMP_FORCE_MIN+ratio*(upgrades.effectiveJumpMax()-JUMP_FORCE_MIN);
+    // Compute direction from player center to mouse in world space
     float mwx=mouseScreenX+camX, mwy=mouseScreenY+camY;
-    float ang=std::atan2(mwy-(player.y+player.height*0.5f),mwx-(player.x+player.width*0.5f));
-    player.vx=std::cos(ang)*power; player.vy=std::sin(ang)*power;
+    float pcx=player.x+player.width*0.5f, pcy=player.y+player.height*0.5f;
+    float dx=mwx-pcx, dy=mwy-pcy;
+    float dist=std::sqrt(dx*dx+dy*dy);
+    // Safe default: jump straight up if mouse is on/near player
+    if (dist<1.0f) { dx=0.0f; dy=-1.0f; dist=1.0f; }
+    float dirX=dx/dist, dirY=dy/dist;
+    // Ground jumps must have an upward component — clicking below wastes the jump
+    if (player.chargeType==1 && dirY>-0.1f) {
+        dirY=-0.1f;
+        float mag=std::sqrt(dirX*dirX+dirY*dirY);
+        dirX/=mag; dirY/=mag;
+    }
+    player.vx=dirX*power; player.vy=dirY*power;
     if (player.chargeType==2) player.lastAirJumpTick=ticks;
     player.onGround=false; player.charging=false; player.chargeTime=0; player.chargeType=0;
     player.jumpAnimTimer=12; player.blinkTimer=10; player.blinkRight=(std::rand()%2)==0;

@@ -55,6 +55,7 @@ private:
     int   deathTimer=0,transitionTimer=0,transitionSeason=0;
     int   shopHover=-1;
     int   levelSelectScroll=0;
+    int   summerWaveKickCooldown=0;
 
     static float randf(float lo, float hi);
     static float clampf(float v, float lo, float hi);
@@ -94,6 +95,11 @@ private:
 
     void saveGame();
     void loadGame();
+
+    float getSummerShoreX() const;
+    float getSummerWaveAmplitude(float worldX) const;
+    float getSummerWaterSurfaceY(float worldX) const;
+    float getSummerWavePush(float worldX) const;
 
     LevelData generateLevel(int levelNum);
     LevelData generateSpringLevel(int levelNum);
@@ -164,6 +170,7 @@ private:
     void setColor(const SDL_Color& c);
     void fillRect(float x,float y,float w,float h,const SDL_Color& c);
     void fillCircle(float cx,float cy,float r,const SDL_Color& c);
+    void fillEllipse(float cx,float cy,float rx,float ry,const SDL_Color& c);
     void fillRoundedRect(float x,float y,float w,float h,float r,const SDL_Color& c);
     void drawGlowRect(float x,float y,float w,float h,const SDL_Color& c,int layers,float spread);
     void drawThickLine(float x1,float y1,float x2,float y2,float th,const SDL_Color& c);
@@ -189,6 +196,7 @@ private:
     void drawMetalPlatform(const Platform& pf,float x,float y,float w,float h);
     void drawSpringPlatform(float x,float y,float w,float h,bool isGround);
     void drawBuoyPlatform(const Platform& pf,float sx,float sy);
+    void drawBoatPlatform(const Platform& pf,float sx,float sy);
     void drawMooncakePlatform(const Platform& pf,float sx,float sy);
     void drawSandGround(float sx,float sy,float w,float h);
     void drawPlatforms();

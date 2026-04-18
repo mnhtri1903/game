@@ -40,6 +40,8 @@ struct Platform {
     int   buoyFlyTimer=0;
     float buoyVx=0,buoyVy=0;
     float buoyBobOffset=0;
+    bool  isBoat=false;
+    float baseX=0,baseY=0;
 };
 
 struct WaterZone {

@@ -19,6 +19,18 @@ void SquareJumpGame::fillCircle(float cx,float cy,float radius,const SDL_Color& 
     }
 }
 
+void SquareJumpGame::fillEllipse(float cx,float cy,float rx,float ry,const SDL_Color& c) {
+    if(rx<=0||ry<=0) return;
+    setColor(c);
+    int iry=static_cast<int>(std::ceil(ry));
+    for(int iy=-iry;iy<=iry;iy++) {
+        float dy=static_cast<float>(iy);
+        float unit=1.0f-(dy*dy)/(ry*ry);
+        float dx=rx*std::sqrt(std::max(0.0f,unit));
+        SDL_RenderLine(renderer,cx-dx,cy+dy,cx+dx,cy+dy);
+    }
+}
+
 void SquareJumpGame::fillRoundedRect(float x,float y,float w,float h,float r,const SDL_Color& c) {
     r=clampf(r,0,std::min(w,h)*0.5f);
     if(r<=0.5f){fillRect(x,y,w,h,c);return;}
@@ -143,9 +155,7 @@ void SquareJumpGame::drawSpringBackdrop() {
 
 void SquareJumpGame::drawSummerBackground() {
     float waterScreenY = levelData.waterLineY - camY;
-    float sandScreenY  = (levelData.worldH - SUMMER_SAND_HEIGHT) - camY;
-
-    drawGradientVertical({64,164,223,255},{120,200,240,255});
+    drawGradientVertical({92,199,255,255},{221,246,255,255});
 
     float sunX=screenW*0.80f, sunY=screenH*0.12f;
     if(sunY < waterScreenY) {
@@ -156,33 +166,35 @@ void SquareJumpGame::drawSummerBackground() {
         fillCircle(sunX,sunY,36,alpha({255,250,200,255},240));
     }
 
-    float seaTop = waterScreenY < 0 ? 0 : waterScreenY;
-    float seaBot = sandScreenY > screenH ? static_cast<float>(screenH) : sandScreenY;
-    if(seaTop < seaBot) {
-        for(int i=0;i<8;i++) {
-            float t=static_cast<float>(i)/8.0f;
-            SDL_Color wc=blend({14,90,190,255},{25,120,220,255},t);
-            float wy=seaTop+t*(seaBot-seaTop);
-            fillRect(0,wy,static_cast<float>(screenW),(seaBot-seaTop)/8.0f+1,wc);
+    for(int i=0;i<4;i++) {
+        float cloudX=std::fmod(i*260.0f-camX*0.08f,static_cast<float>(screenW)+340.0f)-120.0f;
+        float cloudY=90.0f+i*34.0f+std::sin(ticks*0.01f+i)*8.0f;
+        fillEllipse(cloudX,cloudY,70.0f,20.0f,alpha({255,255,255,255},65));
+        fillEllipse(cloudX+45.0f,cloudY-8.0f,58.0f,18.0f,alpha({255,255,255,255},50));
+    }
+
+    float seaTop=std::max(waterScreenY-18.0f,0.0f);
+    if(seaTop<screenH) {
+        float seaHeight=static_cast<float>(screenH)-seaTop;
+        for(int i=0;i<10;i++) {
+            float t=static_cast<float>(i)/9.0f;
+            SDL_Color wc=blend({17,112,199,255},{4,54,112,255},t);
+            float wy=seaTop+t*seaHeight;
+            fillRect(0,wy,static_cast<float>(screenW),seaHeight/9.0f+2.0f,wc);
         }
-        for(int i=0;i<6;i++) {
-            float wavX=std::fmod(i*180.0f+ticks*0.8f-camX*0.2f,static_cast<float>(screenW)+200)-100;
-            float wavY=seaTop+20+i*12+std::sin(ticks*0.04f+i)*5;
-            if(wavY>seaTop&&wavY<seaBot)
-                drawThickLine(wavX,wavY,wavX+140,wavY+3,2,alpha({200,230,255,255},60));
+        for(int i=0;i<8;i++) {
+            float wavX=std::fmod(i*210.0f+ticks*1.2f-camX*0.15f,static_cast<float>(screenW)+260.0f)-130.0f;
+            float wavY=seaTop+38.0f+i*16.0f+std::sin(ticks*0.04f+i)*6.0f;
+            if(wavY>seaTop&&wavY<screenH)
+                drawThickLine(wavX,wavY,wavX+160.0f,wavY+4.0f,2.0f,alpha({210,238,255,255},55));
         }
     }
 
-    if(sandScreenY < screenH && sandScreenY+SUMMER_SAND_HEIGHT > 0) {
-        float sy=std::max(sandScreenY,0.0f);
-        float sh=std::min(sandScreenY+SUMMER_SAND_HEIGHT,static_cast<float>(screenH))-sy;
-        if(sh>0) {
-            fillRect(0,sy,static_cast<float>(screenW),sh,{210,180,100,255});
-            fillRect(0,sy,static_cast<float>(screenW),8,{225,200,130,255});
-            for(int i=0;i<14;i++) {
-                float gx=std::fmod(i*110.0f-camX*0.12f,screenW+120)-60;
-                fillRect(gx,sy+sh*0.4f,60,7,alpha({190,155,75,255},80));
-            }
+    float shoreX=getSummerShoreX()-camX;
+    if(shoreX>-160.0f&&shoreX<screenW+120.0f) {
+        for(int i=0;i<5;i++) {
+            float foamY=waterScreenY+6.0f+std::sin(ticks*0.09f+i)*7.0f;
+            fillEllipse(shoreX+14.0f+i*16.0f,foamY,18.0f+i*3.0f,7.0f+i,alpha({255,255,255,255},110-i*14));
         }
     }
 }
@@ -305,8 +317,16 @@ void SquareJumpGame::drawSpringPlatform(float x,float y,float w,float h,bool isG
 }
 
 void SquareJumpGame::drawSandGround(float sx,float sy,float w,float h) {
-    fillRect(sx,sy,w,h,{210,180,100,255});
-    fillRect(sx,sy,w,8,{225,200,130,255});
+    if(levelData.season==SEASON_SUMMER&&w<=SUMMER_START_BEACH_WIDTH+20.0f) {
+        fillRoundedRect(sx,sy+10.0f,w,h-10.0f,14.0f,{210,180,100,255});
+        fillEllipse(sx+w*0.42f,sy+16.0f,w*0.38f,14.0f,{231,204,128,255});
+        fillEllipse(sx+w*0.84f,sy+h*0.70f,14.0f,8.0f,alpha({255,255,255,255},120));
+        fillEllipse(sx+w*0.68f,sy+h*0.62f,10.0f,6.0f,alpha({255,255,255,255},90));
+        fillRect(sx+8.0f,sy+8.0f,w-24.0f,8.0f,{225,200,130,255});
+    } else {
+        fillRect(sx,sy,w,h,{210,180,100,255});
+        fillRect(sx,sy,w,8,{225,200,130,255});
+    }
     for(int i=0;i<static_cast<int>(w/45)+1;i++) {
         float gx=sx+i*45+std::sin(static_cast<float>(i)*2.1f)*9;
         fillCircle(gx,sy+h*0.45f,3+std::sin(static_cast<float>(i))*1.5f,alpha({185,148,70,255},110));
@@ -316,18 +336,20 @@ void SquareJumpGame::drawSandGround(float sx,float sy,float w,float h) {
 void SquareJumpGame::drawBuoyPlatform(const Platform& pf,float sx,float sy) {
     if(pf.buoyGone) return;
     float cx=sx+pf.w*0.5f;
-    float bob=pf.buoyActivated ? 0.0f : std::sin(ticks*0.06f+pf.buoyBobOffset)*4.0f;
-    float topY=sy-bob;
+    float cy=sy+pf.h*0.56f;
+    float topY=cy-pf.h*0.32f;
+    float lean=clampf(pf.buoyVx*9.0f,-4.0f,4.0f);
 
-    for(int i=3;i>=0;i--)
-        fillCircle(cx,sy+pf.h*0.5f,pf.w*0.5f+i*2,alpha({0,80,160,255},static_cast<Uint8>(25-i*7)));
-    fillCircle(cx,sy+pf.h*0.5f,pf.w*0.5f,{255,140,0,255});
-    fillCircle(cx,sy+pf.h*0.5f,pf.w*0.42f,{255,170,30,255});
-
-    fillRect(sx+3,sy+pf.h*0.5f-3,pf.w-6,6,{220,30,30,255});
-    fillRect(cx-3,topY,6,pf.h,{220,30,30,255});
-
-    fillRoundedRect(sx+5,topY,pf.w-10,10,5,alpha({255,255,255,255},200));
+    fillEllipse(cx,cy+pf.h*0.62f,pf.w*0.40f,pf.h*0.18f,alpha({5,51,110,255},70));
+    fillEllipse(cx,cy,pf.w*0.50f,pf.h*0.42f,{222,160,92,255});
+    fillEllipse(cx,cy+3.0f,pf.w*0.46f,pf.h*0.24f,{194,129,58,255});
+    fillEllipse(cx+lean*0.25f,cy-pf.h*0.10f,pf.w*0.46f,pf.h*0.20f,{255,112,146,255});
+    fillEllipse(cx-lean*0.10f,cy-pf.h*0.18f,pf.w*0.32f,pf.h*0.10f,alpha({255,205,218,255},120));
+    fillEllipse(cx,cy+1.0f,pf.w*0.17f,pf.h*0.12f,{22,114,184,235});
+    fillEllipse(cx,cy-2.0f,pf.w*0.11f,pf.h*0.07f,alpha({183,228,255,255},110));
+    fillRect(cx-pf.w*0.18f,cy-pf.h*0.22f,6,2,{255,235,59,255});
+    fillRect(cx-pf.w*0.04f,cy-pf.h*0.28f,5,2,{0,229,255,255});
+    fillRect(cx+pf.w*0.10f,cy-pf.h*0.20f,6,2,{255,255,255,255});
 
     if(pf.buoyActivated) {
         drawGlowRect(sx,topY,pf.w,pf.h,{255,200,50,255},4,12);
@@ -336,9 +358,25 @@ void SquareJumpGame::drawBuoyPlatform(const Platform& pf,float sx,float sy) {
 
     float pdx=(player.x+player.width*0.5f)-(pf.x+pf.w*0.5f);
     float pdy=(player.y+player.height*0.5f)-(pf.y+pf.h*0.5f);
-    bool playerOnThis=(player.ridingBuoyIndex>=0);
+    bool playerOnThis=true;
     if(!playerOnThis && pdx*pdx+pdy*pdy<200*200)
         drawDialogueBubble(cx,topY,"Bấm Q để tháo van",{255,255,220,255});
+}
+
+void SquareJumpGame::drawBoatPlatform(const Platform& pf,float sx,float sy) {
+    float hullY=sy+pf.h*0.35f;
+    fillEllipse(sx+pf.w*0.5f,sy+pf.h+18.0f,pf.w*0.42f,10.0f,alpha({6,48,108,255},75));
+    fillRoundedRect(sx+14.0f,sy-12.0f,pf.w-28.0f,14.0f,6.0f,{245,237,218,255});
+    fillRect(sx+22.0f,sy-18.0f,pf.w-44.0f,4.0f,{148,103,65,255});
+    for(int i=0;i<5;i++) {
+        float inset=i*8.0f;
+        SDL_Color hc=blend({126,76,41,255},{89,48,28,255},static_cast<float>(i)/5.0f);
+        fillRoundedRect(sx+inset,hullY+i*4.0f,pf.w-inset*2.0f,10.0f,5.0f,hc);
+    }
+    fillRect(sx+26.0f,sy-4.0f,4.0f,14.0f,{110,72,46,255});
+    fillRect(sx+pf.w-30.0f,sy-4.0f,4.0f,14.0f,{110,72,46,255});
+    fillEllipse(sx+pf.w*0.22f,hullY+6.0f,7.0f,4.0f,alpha({255,255,255,255},95));
+    fillEllipse(sx+pf.w*0.74f,hullY+10.0f,9.0f,4.0f,alpha({255,255,255,255},85));
 }
 
 void SquareJumpGame::drawMooncakePlatform(const Platform& pf,float sx,float sy) {
@@ -364,6 +402,7 @@ void SquareJumpGame::drawPlatforms() {
 
         if(pf.isMooncake)                               drawMooncakePlatform(pf,x,y);
         else if(pf.isBuoy)                              drawBuoyPlatform(pf,x,y);
+        else if(pf.isBoat)                              drawBoatPlatform(pf,x,y);
         else if(pf.isGround&&levelData.season==SEASON_SUMMER) drawSandGround(x,y,pf.w,pf.h);
         else if(levelData.isSpring||state==GameState::Market)  drawSpringPlatform(x,y,pf.w,pf.h,pf.isGround);
         else if(levelData.season==SEASON_WINTER) {
@@ -377,6 +416,33 @@ void SquareJumpGame::drawWaterZones() {
     for(const WaterZone& wz:levelData.waterZones) {
         float x=wz.x-camX, y=wz.y-camY;
         if(x+wz.w<0||x>screenW||y+wz.h<0||y>screenH) continue;
+        if(levelData.season==SEASON_SUMMER) {
+            float left=std::max(x,0.0f);
+            float right=std::min(x+wz.w,static_cast<float>(screenW));
+            float top=std::max(y,0.0f);
+            if(right<=left||top>=screenH) continue;
+            fillRect(left,top,right-left,static_cast<float>(screenH)-top,alpha({6,74,150,255},72));
+            for(float wx=left-60.0f;wx<right+80.0f;wx+=68.0f) {
+                float worldX=camX+wx;
+                float crestY=getSummerWaterSurfaceY(worldX)-camY;
+                float breaker=1.0f-clampf((worldX-getSummerShoreX())/SUMMER_WAVE_SHORE_RANGE,0.0f,1.0f);
+                drawThickLine(wx-20.0f,crestY,wx+48.0f,crestY+std::sin(ticks*0.05f+worldX*0.01f)*2.5f,
+                              2.0f+breaker*1.3f,alpha({242,250,255,255},static_cast<Uint8>(95+breaker*60)));
+                if(breaker>0.22f&&wx<getSummerShoreX()-camX+150.0f) {
+                    fillEllipse(wx+8.0f,crestY+6.0f,16.0f+breaker*12.0f,4.0f+breaker*4.0f,
+                                alpha({255,255,255,255},static_cast<Uint8>(70+breaker*70)));
+                }
+            }
+            float shoreX=getSummerShoreX()-camX;
+            if(shoreX>-120.0f&&shoreX<screenW+120.0f) {
+                for(int i=0;i<6;i++) {
+                    float foamX=shoreX+10.0f+i*15.0f;
+                    float foamY=getSummerWaterSurfaceY(camX+foamX)-camY+4.0f+std::sin(ticks*0.12f+i)*5.0f;
+                    fillEllipse(foamX,foamY,16.0f+i*1.5f,6.0f+i*0.6f,alpha({255,255,255,255},120-i*12));
+                }
+            }
+            continue;
+        }
         SDL_Color wc=wz.isDangerous?SDL_Color{180,30,30,255}:SDL_Color{30,100,200,255};
         fillRect(x,y,wz.w,wz.h,alpha(wc,160));
         for(int i=0;i<4;i++) {

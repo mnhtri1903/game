@@ -7,10 +7,10 @@ struct SaveData {
     int  level       = 1;
     int  lixiCount   = 0;
     int  playerHealth= 100;
-    int  jumpLevel   = 0;   // 0-3
-    int  chargeLevel = 0;   // 0-3
-    int  healthLevel = 0;   // 0-3
-    int  heatLevel   = 0;   // 0-2
+    int  jumpLevel   = 0; 
+    int  chargeLevel = 0; 
+    int  healthLevel = 0;   
+    int  heatLevel   = 0;   
     bool hasShovel   = false;
 };
 
