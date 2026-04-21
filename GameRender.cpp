@@ -143,9 +143,9 @@ void SquareJumpGame::drawSpringBackdrop() {
 
     float groundWorldY = levelData.worldH - 44.0f;
     float treeScreenY  = groundWorldY - camY;
-    float parallaxX    = std::fmod(camX * 0.6f, 240.0f);
     float step = std::max(220.0f, screenW / 5.0f);
-    for(float fx = -parallaxX; fx < screenW + step; fx += step) {
+    float parallaxX = std::fmod(camX * 0.6f, step);
+    for(float fx = -parallaxX - step; fx < screenW + step; fx += step) {
         if(treeScreenY > -200 && treeScreenY < screenH + 100) {
             float sc = 0.9f + std::sin((fx + camX) * 0.01f) * 0.12f;
             drawTree(fx, treeScreenY, 82*sc, 0, 8*sc, 0);
@@ -239,13 +239,67 @@ void SquareJumpGame::drawDesertBackground() {
     }
 }
 
+void SquareJumpGame::drawDayBackground() {
+    drawGradientVertical({110,195,240,255},{210,240,255,255});
+    float sunX=screenW*0.80f, sunY=screenH*0.13f;
+    for(int i=5;i>=0;i--) {
+        float r=28+i*13+std::sin(ticks*0.04f)*3;
+        fillCircle(sunX,sunY,r,alpha({255,240,100,255},static_cast<Uint8>(28-i*4)));
+    }
+    fillCircle(sunX,sunY,30,{255,252,200,255});
+    for(int i=0;i<5;i++) {
+        float cx=std::fmod(i*290.0f-camX*0.07f,static_cast<float>(screenW)+380.0f)-140.0f;
+        float cy=72.0f+i*36.0f+std::sin(ticks*0.01f+i)*7.0f;
+        fillEllipse(cx,cy,82.0f,24.0f,alpha({255,255,255,255},185));
+        fillEllipse(cx+55.0f,cy-11.0f,65.0f,20.0f,alpha({255,255,255,255},155));
+        fillEllipse(cx-30.0f,cy-6.0f,50.0f,17.0f,alpha({255,255,255,255},140));
+    }
+    float groundWorldY = levelData.worldH - 44.0f;
+    float treeScreenY  = groundWorldY - camY;
+    float step = std::max(240.0f, screenW / 4.5f);
+    float parallaxX = std::fmod(camX * 0.55f, step);
+    SDL_Color savedPetalA = currentTheme.petalA;
+    (void)savedPetalA;
+    for(float fx = -parallaxX - step; fx < screenW + step; fx += step) {
+        if(treeScreenY > -200 && treeScreenY < screenH + 100) {
+            float sc = 0.85f + std::sin((fx + camX) * 0.011f) * 0.1f;
+            drawTree(fx, treeScreenY, 78*sc, 0, 7*sc, 0);
+        }
+    }
+}
+
+void SquareJumpGame::drawNightBackground() {
+    drawGradientVertical(NIGHT_THEME.bg1,NIGHT_THEME.bg2);
+    float moonX=screenW*0.78f, moonY=screenH*0.13f;
+    fillCircle(moonX,moonY,38,alpha({220,230,255,255},220));
+    fillCircle(moonX+10,moonY-10,32,alpha({10,10,26,255},200));
+    fillCircle(moonX-8,moonY+5,8,alpha({180,190,220,255},60));
+    fillCircle(moonX+14,moonY+12,5,alpha({180,190,220,255},50));
+    drawParallaxStars(levelData.stars,
+        std::max(levelData.worldW,static_cast<float>(screenW)),
+        std::max(levelData.worldH,static_cast<float>(screenH)));
+    float groundWorldY = levelData.worldH - 44.0f;
+    float treeScreenY  = groundWorldY - camY;
+    float step = std::max(280.0f, screenW / 4.0f);
+    float parallaxX = std::fmod(camX * 0.5f, step);
+    for(float fx = -parallaxX - step; fx < screenW + step; fx += step) {
+        if(treeScreenY > -200 && treeScreenY < screenH + 100) {
+            float sc = 0.8f + std::sin((fx+camX)*0.009f)*0.1f;
+            fillRect(fx-5*sc, treeScreenY-90*sc, 10*sc, 90*sc, alpha({10,10,26,255},200));
+            fillCircle(fx, treeScreenY-90*sc, 30*sc, alpha({15,15,40,255},190));
+        }
+    }
+}
+
 void SquareJumpGame::drawWorldBackground() {
     if(levelData.isSpring||state==GameState::Market) { drawSpringBackdrop(); return; }
     switch(levelData.season) {
-        case SEASON_SUMMER: drawSummerBackground(); break;
-        case SEASON_AUTUMN: drawAutumnBackground(); break;
-        case SEASON_WINTER: drawWinterBackground(); break;
-        case SEASON_DESERT: drawDesertBackground(); break;
+        case SEASON_DAY:    drawDayBackground();     break;
+        case SEASON_NIGHT:  drawNightBackground();   break;
+        case SEASON_SUMMER: drawSummerBackground();  break;
+        case SEASON_AUTUMN: drawAutumnBackground();  break;
+        case SEASON_WINTER: drawWinterBackground();  break;
+        case SEASON_DESERT: drawDesertBackground();  break;
         default:
             drawGradientVertical(currentTheme.bg1,currentTheme.bg2);
             drawParallaxStars(levelData.stars,std::max(levelData.worldW,static_cast<float>(screenW)),std::max(levelData.worldH,static_cast<float>(screenH)));
@@ -317,12 +371,14 @@ void SquareJumpGame::drawSpringPlatform(float x,float y,float w,float h,bool isG
 }
 
 void SquareJumpGame::drawSandGround(float sx,float sy,float w,float h) {
-    if(levelData.season==SEASON_SUMMER&&w<=SUMMER_START_BEACH_WIDTH+20.0f) {
+    if(levelData.season==SEASON_SUMMER&&w<=SUMMER_START_BEACH_WIDTH+30.0f) {
         fillRoundedRect(sx,sy+10.0f,w,h-10.0f,14.0f,{210,180,100,255});
-        fillEllipse(sx+w*0.42f,sy+16.0f,w*0.38f,14.0f,{231,204,128,255});
+        fillEllipse(sx+w*0.38f,sy+16.0f,w*0.30f,14.0f,{231,204,128,255});
+        fillEllipse(sx+w*0.72f,sy+16.0f,w*0.18f,12.0f,{231,204,128,255});
         fillEllipse(sx+w*0.84f,sy+h*0.70f,14.0f,8.0f,alpha({255,255,255,255},120));
-        fillEllipse(sx+w*0.68f,sy+h*0.62f,10.0f,6.0f,alpha({255,255,255,255},90));
+        fillEllipse(sx+w*0.55f,sy+h*0.62f,10.0f,6.0f,alpha({255,255,255,255},90));
         fillRect(sx+8.0f,sy+8.0f,w-24.0f,8.0f,{225,200,130,255});
+        fillEllipse(sx+w*0.22f,sy+h*0.50f,22.0f,8.0f,alpha({200,170,90,255},80));
     } else {
         fillRect(sx,sy,w,h,{210,180,100,255});
         fillRect(sx,sy,w,8,{225,200,130,255});
@@ -335,31 +391,49 @@ void SquareJumpGame::drawSandGround(float sx,float sy,float w,float h) {
 
 void SquareJumpGame::drawBuoyPlatform(const Platform& pf,float sx,float sy) {
     if(pf.buoyGone) return;
+
+    bool sinking = pf.buoySinkTimer > 0;
+    float sinkAlpha = sinking
+        ? clampf(static_cast<float>(pf.buoySinkTimer) / BUOY_SINK_DURATION, 0.0f, 1.0f)
+        : 1.0f;
+    Uint8 A = static_cast<Uint8>(255 * sinkAlpha);
+
     float cx=sx+pf.w*0.5f;
     float cy=sy+pf.h*0.56f;
     float topY=cy-pf.h*0.32f;
     float lean=clampf(pf.buoyVx*9.0f,-4.0f,4.0f);
 
-    fillEllipse(cx,cy+pf.h*0.62f,pf.w*0.40f,pf.h*0.18f,alpha({5,51,110,255},70));
-    fillEllipse(cx,cy,pf.w*0.50f,pf.h*0.42f,{222,160,92,255});
-    fillEllipse(cx,cy+3.0f,pf.w*0.46f,pf.h*0.24f,{194,129,58,255});
-    fillEllipse(cx+lean*0.25f,cy-pf.h*0.10f,pf.w*0.46f,pf.h*0.20f,{255,112,146,255});
-    fillEllipse(cx-lean*0.10f,cy-pf.h*0.18f,pf.w*0.32f,pf.h*0.10f,alpha({255,205,218,255},120));
-    fillEllipse(cx,cy+1.0f,pf.w*0.17f,pf.h*0.12f,{22,114,184,235});
-    fillEllipse(cx,cy-2.0f,pf.w*0.11f,pf.h*0.07f,alpha({183,228,255,255},110));
-    fillRect(cx-pf.w*0.18f,cy-pf.h*0.22f,6,2,{255,235,59,255});
-    fillRect(cx-pf.w*0.04f,cy-pf.h*0.28f,5,2,{0,229,255,255});
-    fillRect(cx+pf.w*0.10f,cy-pf.h*0.20f,6,2,{255,255,255,255});
+    if(sinking) {
+        float prog = 1.0f - sinkAlpha;
+        fillEllipse(cx, cy+pf.h*0.4f, pf.w*0.48f+prog*8.0f, pf.h*0.22f,
+                    alpha({20,80,200,255}, static_cast<Uint8>(120*prog)));
+        for(int i=0;i<5;i++) {
+            float bx=sx+randf(0,pf.w), by=sy+randf(-4,4);
+            fillCircle(bx,by,randf(3,7),alpha({200,230,255,255},static_cast<Uint8>(80+40*prog)));
+        }
+    }
 
-    if(pf.buoyActivated) {
+    fillEllipse(cx,cy+pf.h*0.62f,pf.w*0.40f,pf.h*0.18f,alpha({5,51,110,255},static_cast<Uint8>(70*sinkAlpha)));
+    fillEllipse(cx,cy,pf.w*0.50f,pf.h*0.42f,alpha({222,160,92,255},A));
+    fillEllipse(cx,cy+3.0f,pf.w*0.46f,pf.h*0.24f,alpha({194,129,58,255},A));
+    fillEllipse(cx+lean*0.25f,cy-pf.h*0.10f,pf.w*0.46f,pf.h*0.20f,alpha({255,112,146,255},A));
+    fillEllipse(cx-lean*0.10f,cy-pf.h*0.18f,pf.w*0.32f,pf.h*0.10f,alpha({255,205,218,255},static_cast<Uint8>(120*sinkAlpha)));
+    fillEllipse(cx,cy+1.0f,pf.w*0.17f,pf.h*0.12f,alpha({22,114,184,235},A));
+    fillEllipse(cx,cy-2.0f,pf.w*0.11f,pf.h*0.07f,alpha({183,228,255,255},static_cast<Uint8>(110*sinkAlpha)));
+    if(!sinking) {
+        fillRect(cx-pf.w*0.18f,cy-pf.h*0.22f,6,2,{255,235,59,255});
+        fillRect(cx-pf.w*0.04f,cy-pf.h*0.28f,5,2,{0,229,255,255});
+        fillRect(cx+pf.w*0.10f,cy-pf.h*0.20f,6,2,{255,255,255,255});
+    }
+
+    if(pf.buoyActivated && !sinking) {
         drawGlowRect(sx,topY,pf.w,pf.h,{255,200,50,255},4,12);
         return;
     }
-
     float pdx=(player.x+player.width*0.5f)-(pf.x+pf.w*0.5f);
     float pdy=(player.y+player.height*0.5f)-(pf.y+pf.h*0.5f);
     bool playerOnThis=true;
-    if(!playerOnThis && pdx*pdx+pdy*pdy<200*200)
+    if(!playerOnThis && pdx*pdx+pdy*pdy<200*200 && !sinking)
         drawDialogueBubble(cx,topY,"Bấm Q để tháo van",{255,255,220,255});
 }
 
@@ -397,8 +471,22 @@ void SquareJumpGame::drawMooncakePlatform(const Platform& pf,float sx,float sy) 
 void SquareJumpGame::drawPlatforms() {
     for(const Platform& pf:levelData.platforms) {
         if(pf.buoyGone) continue;
+        if(pf.isFake && pf.fakeSunk) continue;
         float x=pf.x-camX, y=pf.y-camY;
         if(x+pf.w<0||x>screenW||y+pf.h<0||y>screenH) continue;
+
+        if(pf.isFake) {
+            Uint8 fadeA = pf.fakeSinkTimer > 0
+                ? static_cast<Uint8>(255 - (pf.fakeSinkTimer * 255 / FAKE_SINK_TIME))
+                : 255;
+            bool blink = (pf.fakeSinkTimer > FAKE_SINK_TIME / 2) && (ticks % 6 < 3);
+            SDL_Color fc = blink ? SDL_Color{200,100,255,fadeA} : SDL_Color{142,45,226,fadeA};
+            fillRoundedRect(x, y, pf.w, pf.h, 5, alpha(fc, fadeA));
+            fillRect(x, y, pf.w, 3, alpha({200,150,255,255}, fadeA));
+            if(pf.fakeSinkTimer > 0)
+                drawGlowRect(x, y, pf.w, pf.h, {200,100,255,255}, 2, 6);
+            continue;
+        }
 
         if(pf.isMooncake)                               drawMooncakePlatform(pf,x,y);
         else if(pf.isBuoy)                              drawBuoyPlatform(pf,x,y);
@@ -409,6 +497,88 @@ void SquareJumpGame::drawPlatforms() {
             drawMetalPlatform(pf,x,y,pf.w,pf.h);
             fillRect(x,y,pf.w,3,alpha({200,230,255,255},180));
         } else drawMetalPlatform(pf,x,y,pf.w,pf.h);
+    }
+}
+
+void SquareJumpGame::drawFans() {
+    for(const Fan& fan : levelData.fans) {
+        float x = fan.x - camX, y = fan.y - camY;
+        if(x + fan.w < -60 || x > screenW + 60 || y + fan.h < -60 || y > screenH + 60) continue;
+
+        bool blowLeft = fan.forceX < 0;
+        SDL_Color body  = fan.reverse ? SDL_Color{80,20,160,255}  : SDL_Color{40,80,150,255};
+        SDL_Color frame = fan.reverse ? SDL_Color{130,50,220,255} : SDL_Color{70,130,210,255};
+        SDL_Color blade = fan.reverse ? SDL_Color{200,100,255,255}: SDL_Color{120,210,255,255};
+        SDL_Color wind  = fan.reverse ? SDL_Color{200,80,255,200} : SDL_Color{160,220,255,200};
+
+        fillRect(x, y, fan.w, fan.h, body);
+        fillRect(x, y, fan.w, 3, frame);
+        fillRect(x, y + fan.h - 3, fan.w, 3, frame);
+        fillRect(x, y, 3, fan.h, frame);
+        fillRect(x + fan.w - 3, y, 3, fan.h, frame);
+
+        float inset = 4.0f;
+        fillRect(x + inset, y + inset, fan.w - inset*2, fan.h - inset*2, alpha(body, 180));
+
+        float cx = x + fan.w * 0.5f, cy = y + fan.h * 0.5f;
+        float rot = ticks * (fan.reverse ? -0.18f : 0.16f);
+        float bladeLen = fan.w * 0.38f;
+        for(int b = 0; b < 4; b++) {
+            float ang = rot + b * (PI * 0.5f);
+            float bx1 = cx + std::cos(ang) * 3.5f, by1 = cy + std::sin(ang) * 3.5f;
+            float bx2 = cx + std::cos(ang) * bladeLen, by2 = cy + std::sin(ang) * bladeLen;
+            drawThickLine(bx1, by1, bx2, by2, 5.0f, blade);
+            fillRect(bx2 - 4, by2 - 4, 8, 8, alpha(blade, 210));
+        }
+        fillRect(cx - 4, cy - 4, 8, 8, frame);
+        fillRect(cx - 2, cy - 2, 4, 4, {255,255,255,220});
+
+        float pulse = 0.55f + 0.45f * std::sin(ticks * 0.2f);
+        float edgeX = blowLeft ? x : (x + fan.w);
+        float stepDir = blowLeft ? -1.0f : 1.0f;
+        for(int a = 0; a < 5; a++) {
+            float dist = (a + 1) * 18.0f;
+            float ax = edgeX + stepDir * dist;
+            float ay = cy;
+            float fade = 1.0f - static_cast<float>(a) / 5.0f;
+            Uint8 wa = static_cast<Uint8>(200 * fade * pulse);
+            float sz = (5.0f - a) * 1.8f;
+            fillRect(ax - sz * 0.5f, ay - sz * 0.5f, sz, sz, alpha(wind, wa));
+        }
+        for(int row = 0; row < 3; row++) {
+            float ry = cy + (row - 1) * (fan.h * 0.22f);
+            for(int a = 0; a < 4; a++) {
+                float dist = (a + 0.5f) * 14.0f + std::sin(ticks * 0.15f + row + a) * 3.0f;
+                float ax = edgeX + stepDir * dist;
+                Uint8 wa2 = static_cast<Uint8>(140 * (1.0f - a * 0.22f) * pulse);
+                fillCircle(ax, ry, 2.5f, alpha(wind, wa2));
+            }
+        }
+
+        if(fan.reverse) drawGlowRect(x, y, fan.w, fan.h, {180,60,255,255}, 2, 7);
+    }
+}
+
+void SquareJumpGame::drawSpikes() {
+    for(const Spike& sp : levelData.spikes) {
+        float x = sp.x - camX, y = sp.y - camY;
+        if(x + sp.w < -10 || x > screenW + 10 || y + sp.h < -10 || y > screenH + 10) continue;
+        SDL_Color sc = {80, 80, 90, 255};
+        SDL_Color tip = {180, 180, 200, 255};
+        int numTri = static_cast<int>(sp.w / 9.0f);
+        if(numTri < 1) numTri = 1;
+        float triW = sp.w / numTri;
+        for(int t = 0; t < numTri; t++) {
+            float bx = x + t * triW;
+            float mid = bx + triW * 0.5f;
+            fillRect(bx, y + sp.h * 0.5f, triW - 1, sp.h * 0.5f, sc);
+            SDL_RenderLine(renderer, bx, y + sp.h * 0.5f, mid, y);
+            SDL_RenderLine(renderer, bx + triW - 1, y + sp.h * 0.5f, mid, y);
+            setColor(tip);
+            fillCircle(mid, y + 1, 1.5f, tip);
+        }
+        float pulse = 0.6f + 0.4f * std::sin(ticks * 0.1f + sp.x * 0.05f);
+        fillRect(x, y, sp.w, sp.h, alpha({255,100,100,255}, static_cast<Uint8>(30 * pulse)));
     }
 }
 
@@ -440,6 +610,38 @@ void SquareJumpGame::drawWaterZones() {
                     float foamY=getSummerWaterSurfaceY(camX+foamX)-camY+4.0f+std::sin(ticks*0.12f+i)*5.0f;
                     fillEllipse(foamX,foamY,16.0f+i*1.5f,6.0f+i*0.6f,alpha({255,255,255,255},120-i*12));
                 }
+            }
+
+            float worldRange = levelData.worldW * 0.75f;
+            for(const TsunamiWave& tw : levelData.tsunamiWaves) {
+                if(!tw.active) continue;
+                float distToShore = std::max(0.0f, tw.x - getSummerShoreX());
+                float progress = 1.0f - clampf(distToShore / worldRange, 0.0f, 1.0f);
+                float waveH = TSUNAMI_WAVE_BASE_H + progress * progress * TSUNAMI_WAVE_MAX_H;
+                float sx = tw.x - camX;
+                if(sx < -waveH*3 || sx > screenW + waveH*3) continue;
+                float waveTop = getSummerWaterSurfaceY(tw.x) - camY - waveH;
+                Uint8 wA = static_cast<Uint8>(clampf(progress * 200 + 55, 55, 220));
+                for(int layer = 3; layer >= 0; layer--) {
+                    float lw = waveH * (0.6f + layer * 0.4f);
+                    float lh = waveH * (0.3f + layer * 0.18f);
+                    Uint8 layerA = static_cast<Uint8>(wA / (layer + 1));
+                    SDL_Color wc2 = {static_cast<Uint8>(30 + layer*20),
+                                     static_cast<Uint8>(120 + layer*20),
+                                     220, 255};
+                    fillEllipse(sx, waveTop + waveH * 0.5f, lw, lh, alpha(wc2, layerA));
+                }
+                fillEllipse(sx, waveTop + waveH * 0.1f, waveH * 0.45f, waveH * 0.2f,
+                            alpha({220,240,255,255}, static_cast<Uint8>(wA * 0.7f)));
+                for(int f = -2; f <= 2; f++) {
+                    float fx = sx + f * waveH * 0.3f;
+                    float fy = waveTop - waveH * 0.1f + std::sin(ticks * 0.2f + f) * 3.0f;
+                    fillEllipse(fx, fy, waveH * 0.22f, 5.0f + progress * 6.0f,
+                                alpha({255,255,255,255}, static_cast<Uint8>(110 * progress)));
+                }
+                if(waveH > 20.0f)
+                    drawGlowRect(sx - waveH * 0.5f, waveTop, waveH, waveH,
+                                 {100,180,255,255}, 2, static_cast<int>(waveH * 0.3f));
             }
             continue;
         }
@@ -803,6 +1005,16 @@ void SquareJumpGame::drawStatBars() {
         fillRoundedRect(panelX,by,150*(val/maxVal),14,7,fc);
         drawText(panelX+4,by+2,label,{255,255,255,255},1.5f);
     };
+    if(season==SEASON_DAY) {
+        if(!levelData.fans.empty())
+            drawBar(panelY,100,100,{100,180,255,255},"Gió thuận");
+    }
+    if(season==SEASON_NIGHT) {
+        if(!levelData.fans.empty()) {
+            float spinRem=player.spinTimer>0?(static_cast<float>(player.spinTimer)/SPIN_TICKS)*100.0f:0.0f;
+            drawBar(panelY,100-spinRem,100,{180,80,255,255},"Xoay");
+        }
+    }
     if(season==SEASON_SUMMER) {
         drawBar(panelY,HEAT_MAX-player.heat,HEAT_MAX,{30,150,255,255},"Mát mẻ");
         drawBar(panelY+20,100-player.waterSubmergedTicks*(100.0f/WATER_SUBMERSION_MAX),100,{30,200,100,255},"Hơi thở");
@@ -826,16 +1038,28 @@ void SquareJumpGame::drawHud() {
     fillRect(0,0,static_cast<float>(screenW),52,alpha({0,0,0,255},128));
     const char* seasonLabel="";
     switch(getSeasonFromLevel(currentLevel)) {
-        case SEASON_SPRING: seasonLabel="Mùa Xuân"; break;
-        case SEASON_SUMMER: seasonLabel="Mùa Hè";   break;
-        case SEASON_AUTUMN: seasonLabel="Mùa Thu";  break;
-        case SEASON_WINTER: seasonLabel="Mùa Đông"; break;
-        case SEASON_DESERT: seasonLabel="Sa Mạc";   break;
+        case SEASON_DAY:    seasonLabel="Ban Ngày";  break;
+        case SEASON_NIGHT:  seasonLabel="Ban Đêm";   break;
+        case SEASON_SPRING: seasonLabel="Mùa Xuân";  break;
+        case SEASON_SUMMER: seasonLabel="Mùa Hè";    break;
+        case SEASON_AUTUMN: seasonLabel="Mùa Thu";   break;
+        case SEASON_WINTER: seasonLabel="Mùa Đông";  break;
+        case SEASON_DESERT: seasonLabel="Sa Mạc";    break;
     }
     if(state==GameState::Market) drawText(20,16,"Chợ Tết",{255,255,255,255},2.0f);
     else drawText(20,16,std::string(seasonLabel)+" - Lv."+std::to_string(currentLevel),{255,255,255,255},2.0f);
 
     drawCenteredText(screenW*0.5f,16,"Lì xì: "+std::to_string(lixiCount),{255,235,59,255},2.0f);
+
+    if(player.spinTimer > 0) {
+        float spinProg = static_cast<float>(player.spinTimer) / SPIN_TICKS;
+        float bx = player.x - camX + player.width*0.5f - 44;
+        float by = player.y - camY - 36;
+        fillRoundedRect(bx, by, 88, 8, 4, alpha({0,0,0,255}, 150));
+        fillRoundedRect(bx, by, 88*spinProg, 8, 4, {200,80,255,255});
+        float pulse = 0.6f + 0.4f*std::sin(ticks*0.3f);
+        drawGlowRect(bx-2, by-2, 92, 12, {180,60,255,255}, 2, static_cast<int>(4*pulse));
+    }
 
     if(player.charging) {
         int effCharge=upgrades.effectiveMaxCharge();
@@ -902,7 +1126,13 @@ void SquareJumpGame::drawLevelSelect() {
     int rows=(LEVEL_MAX+LEVEL_SELECT_COLS-1)/LEVEL_SELECT_COLS;
 
     static const SDL_Color SEASON_COLORS[]={
-        {0,200,100,255},{30,140,220,255},{220,130,30,255},{130,180,220,255},{210,160,60,255}
+        {0,200,100,255},    // SEASON_SPRING=0
+        {30,140,220,255},   // SEASON_SUMMER=1
+        {220,130,30,255},   // SEASON_AUTUMN=2
+        {130,180,220,255},  // SEASON_WINTER=3
+        {210,160,60,255},   // SEASON_DESERT=4
+        {255,210,50,255},   // SEASON_DAY=5
+        {80,60,160,255}     // SEASON_NIGHT=6
     };
 
     for(int r=0;r<rows;r++) {
@@ -912,7 +1142,8 @@ void SquareJumpGame::drawLevelSelect() {
             float bx=marginX+c*cellW, by=startY+r*cellH;
             if(by+cellH<0||by>screenH) continue;
             int season=getSeasonFromLevel(lvl);
-            SDL_Color sColor=SEASON_COLORS[season];
+            int colorIdx = (season>=0&&season<=6) ? season : 0;
+            SDL_Color sColor=SEASON_COLORS[colorIdx];
             SDL_FRect btn={bx,by,cellW-4,cellH-4};
             bool hover=pointInRect(mouseScreenX,mouseScreenY,btn);
             fillRoundedRect(bx,by,cellW-4,cellH-4,6,hover?blend(sColor,{255,255,255,255},0.3f):alpha(sColor,180));
@@ -921,12 +1152,12 @@ void SquareJumpGame::drawLevelSelect() {
         }
     }
 
-    static const char* sNames[]={"Xuân","Hè","Thu","Đông","Sa Mạc"};
+    static const char* sNames[]={"Xuân","Hè","Thu","Đông","Sa Mạc","Ngày","Đêm"};
     float legendX=marginX, legendY=startY+rows*cellH+12;
     if(legendY<screenH-30) {
-        for(int i=0;i<5;i++) {
-            fillRoundedRect(legendX+i*100,legendY,12,12,3,SEASON_COLORS[i]);
-            drawText(legendX+i*100+16,legendY,sNames[i],{220,220,220,255},1.5f);
+        for(int i=0;i<7;i++) {
+            fillRoundedRect(legendX+i*86,legendY,12,12,3,SEASON_COLORS[i]);
+            drawText(legendX+i*86+16,legendY,sNames[i],{220,220,220,255},1.5f);
         }
     }
 }
@@ -983,7 +1214,10 @@ void SquareJumpGame::drawDead() {
     drawWorldBackground(); drawPlatforms();
     fillRect(0,0,static_cast<float>(screenW),static_cast<float>(screenH),alpha({0,0,0,255},180));
     drawCenteredText(screenW*0.5f,screenH*0.5f-80,"Bạn đã chết",{244,67,54,255},4.0f);
-    drawCenteredText(screenW*0.5f,screenH*0.5f-20,"Mùa "+std::to_string(getSeasonFromLevel(currentLevel)+1)+"  Màn: "+std::to_string(currentLevel),{255,255,255,255},1.5f);
+    static const char* seasonNames[]={"Xuân","Hè","Thu","Đông","Sa Mạc","Ngày","Đêm"};
+    int s=getSeasonFromLevel(currentLevel);
+    std::string sName=(s>=0&&s<=6)?seasonNames[s]:"?";
+    drawCenteredText(screenW*0.5f,screenH*0.5f-20,"["+sName+"]  Màn: "+std::to_string(currentLevel),{255,255,255,255},1.5f);
     SDL_FRect rb={screenW*0.5f-130,screenH*0.5f+60,260,60};
     SDL_FRect mb={screenW*0.5f-130,screenH*0.5f+140,260,60};
     drawButton(rb,"[R] Chơi lại",pointInRect(mouseScreenX,mouseScreenY,rb),{244,67,54,255});
@@ -1002,9 +1236,9 @@ void SquareJumpGame::drawWin() {
 }
 
 void SquareJumpGame::drawSeasonTransition() {
-    static const char* names[]={"Mùa Xuân","Mùa Hè","Mùa Thu","Mùa Đông","Sa Mạc"};
-    static const SDL_Color colors[]={{0,230,118,255},{33,150,243,255},{255,152,0,255},{135,206,235,255},{255,193,7,255}};
-    int s=static_cast<int>(clampf(static_cast<float>(transitionSeason),0,4));
+    static const char* names[]={"Mùa Xuân","Mùa Hè","Mùa Thu","Mùa Đông","Sa Mạc","Ban Ngày","Ban Đêm"};
+    static const SDL_Color colors[]={{0,230,118,255},{33,150,243,255},{255,152,0,255},{135,206,235,255},{255,193,7,255},{255,210,50,255},{100,80,200,255}};
+    int s=static_cast<int>(clampf(static_cast<float>(transitionSeason),0,6));
     float af=clampf(static_cast<float>(transitionTimer)/200.0f*2,0,1);
     if(transitionTimer<100) af=clampf(static_cast<float>(transitionTimer)/100.0f,0,1);
     fillRect(0,0,static_cast<float>(screenW),static_cast<float>(screenH),alpha({0,0,0,255},static_cast<Uint8>(af*220)));
@@ -1018,6 +1252,8 @@ void SquareJumpGame::drawWorld(bool showPlayer) {
     if(levelData.season==SEASON_WINTER) drawSnowZones();
     if(levelData.season==SEASON_DESERT) { drawDesertHeat(); drawOases(); drawCamels(); }
     drawPlatforms();
+    if(!levelData.fans.empty())   drawFans();
+    if(!levelData.spikes.empty()) drawSpikes();
     drawCheckpoints();
     drawSpringNpc(); drawChildNpcs();
     drawStalls();

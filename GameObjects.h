@@ -42,6 +42,15 @@ struct Platform {
     float buoyBobOffset=0;
     bool  isBoat=false;
     float baseX=0,baseY=0;
+
+    int   buoySinkTimer=0;
+
+    bool  isFake=false;
+    int   fakeSinkTimer=0;
+    bool  fakeSunk=false;
+    int   fakeSunkTimer=0;
+
+    bool  isSpike=false;
 };
 
 struct WaterZone {
@@ -124,6 +133,26 @@ struct Checkpoint {
     bool  reached=false;
 };
 
+struct Fan {
+    float x=0,y=0,w=40.0f,h=60.0f;
+    float forceX=0;
+    float rangeW=FAN_RANGE_W,rangeH=FAN_RANGE_H;
+    int   animTick=0;
+    bool  reverse=false;
+};
+
+struct Spike {
+    float x=0,y=0,w=20.0f,h=18.0f;
+    int   damage=SPIKE_DAMAGE;
+};
+
+struct TsunamiWave {
+    float x=0;
+    float speed=TSUNAMI_WAVE_SPEED;
+    bool  active=true;
+    int   hitCooldown=0;
+};
+
 struct Upgrades {
     int  jumpLevel=0,chargeLevel=0,healthLevel=0,heatLevel=0;
     bool hasShovel=false;
@@ -147,6 +176,9 @@ struct LevelData {
     std::vector<Checkpoint> checkpoints;
     std::vector<Fireball>   fireballs;
     std::vector<SpinyLeaf>  spinyLeaves;
+    std::vector<Fan>        fans;
+    std::vector<Spike>      spikes;
+    std::vector<TsunamiWave> tsunamiWaves;
 
     SpringNpc springNpc;
     Boss      boss;
@@ -157,6 +189,7 @@ struct LevelData {
     float waterLineY=0;
     bool  isSpring=false,isMarket=false,hasSpringNpc=false,hasBoss=false;
     int   season=SEASON_SPRING;
+    int   tsunamiSpawnTimer=TSUNAMI_WAVE_INTERVAL;
 };
 
 struct Player {
@@ -185,6 +218,7 @@ struct Player {
     int   jumpsLeft=DESERT_JUMP_MAX,camelIndex=-1;
 
     int   ridingBuoyIndex=-1;
+    int   spinTimer=0;
 };
 
 #endif

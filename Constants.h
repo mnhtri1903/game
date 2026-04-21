@@ -49,6 +49,8 @@ constexpr int SEASON_SUMMER           = 1;
 constexpr int SEASON_AUTUMN           = 2;
 constexpr int SEASON_WINTER           = 3;
 constexpr int SEASON_DESERT           = 4;
+constexpr int SEASON_DAY              = 5;
+constexpr int SEASON_NIGHT            = 6;
 
 constexpr int   SPRING_NPC_REWARD     = 5;
 constexpr int   CHILD_NPC_COST        = 3;
@@ -71,7 +73,7 @@ constexpr float BUOY_FLY_SPEED_Y     = -3.5f;
 constexpr float WATER_SUBMERSION_MAX  = 150.0f;
 constexpr float WATER_DROWN_RATE      = 0.6f;
 constexpr float SUMMER_SAND_HEIGHT    = 80.0f;
-constexpr float SUMMER_START_BEACH_WIDTH = PLAYER_WIDTH*3.4f;
+constexpr float SUMMER_START_BEACH_WIDTH = PLAYER_WIDTH*8.5f;
 constexpr float SUMMER_START_BEACH_HEIGHT= 56.0f;
 constexpr float SUMMER_WAVE_SHORE_RANGE  = 320.0f;
 constexpr float SUMMER_WAVE_BREAK_RANGE  = 190.0f;
@@ -79,6 +81,23 @@ constexpr float SUMMER_WAVE_BASE_HEIGHT  = 8.0f;
 constexpr float SUMMER_WAVE_SHORE_BOOST  = 20.0f;
 constexpr float SUMMER_BUOY_DRIFT_RANGE  = 14.0f;
 constexpr float SUMMER_BOAT_WIDTH        = 220.0f;
+
+constexpr float TSUNAMI_WAVE_SPEED    = 3.2f;
+constexpr float TSUNAMI_WAVE_MAX_H    = 78.0f;
+constexpr float TSUNAMI_WAVE_BASE_H   = 10.0f;
+constexpr int   TSUNAMI_WAVE_INTERVAL = 300;
+constexpr int   BUOY_SINK_DURATION    = 100;
+constexpr float BUOY_SINK_DEPTH       = 28.0f;
+
+constexpr float FAN_FORCE_DAY         = 22.0f;
+constexpr float FAN_FORCE_NIGHT       = 20.0f;
+constexpr float FAN_RANGE_W           = 280.0f;
+constexpr float FAN_RANGE_H           = 240.0f;
+constexpr int   FAKE_SINK_TIME        = 48;
+constexpr int   FAKE_RESPAWN_TIME     = 150;
+constexpr int   SPIKE_DAMAGE          = 20;
+constexpr int   SPIN_TICKS            = 50;
+constexpr float SPIN_FORCE            = 13.0f;
 
 constexpr float HUNGER_MAX            = 100.0f;
 constexpr float HUNGER_PER_JUMP       = 2.5f;

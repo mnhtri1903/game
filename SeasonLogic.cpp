@@ -3,10 +3,146 @@
 #include <cmath>
 #include <cstdlib>
 
+LevelData SquareJumpGame::generateDayLevel(int levelNum) {
+    LevelData data;
+    data.theme = DAY_THEME; data.isSpring = false; data.season = SEASON_DAY;
+    int relLevel = levelNum;
+    int pfCount = PLATFORM_COUNT_MIN + (std::rand() % (PLATFORM_COUNT_MAX - PLATFORM_COUNT_MIN + 1));
+    float avgRise = (PLATFORM_RISE_MIN + PLATFORM_RISE_MAX) * 0.5f;
+    data.worldH = static_cast<float>(screenH) + pfCount * avgRise + 280;
+    float groundY = data.worldH - 44;
+    data.platforms.push_back({0, groundY, std::max(static_cast<float>(screenW)+600, 5000.0f), 44, true});
+    float curX = 220, curY = groundY - 100, highX = 0;
+    int fanTarget = 3 + relLevel / 2;
+    int fansPlaced = 0;
+    for (int i = 0; i < pfCount - 1; i++) {
+        float pw = randf(PLATFORM_WIDTH_MIN, PLATFORM_WIDTH_MAX);
+        data.platforms.push_back({curX, curY, pw, 22, false});
+        highX = curX + pw;
+        bool placeFan = fansPlaced < fanTarget && (i % 2 == 0 || (std::rand() % 3 == 0));
+        if (placeFan) {
+            bool blowLeft = (std::rand() % 2 == 0);
+            Fan fan{};
+            fan.w = 46; fan.h = 46;
+            float gapStart = curX + pw;
+            float nextGap = randf(PLATFORM_GAP_MIN, PLATFORM_GAP_MAX);
+            fan.x = blowLeft
+                ? gapStart + nextGap * 0.55f
+                : gapStart + nextGap * 0.2f;
+            fan.y = curY - randf(0, 80);
+            fan.forceX = blowLeft
+                ? -(FAN_FORCE_DAY * (0.9f + relLevel * 0.08f))
+                :  (FAN_FORCE_DAY * (0.9f + relLevel * 0.08f));
+            fan.rangeW = FAN_RANGE_W;
+            fan.rangeH = FAN_RANGE_H;
+            fan.reverse = false;
+            data.fans.push_back(fan);
+            fansPlaced++;
+        }
+        float rise = randf(PLATFORM_RISE_MIN, PLATFORM_RISE_MAX);
+        if (curY - rise < 120) rise = randf(20, 38);
+        curX += pw + randf(PLATFORM_GAP_MIN, PLATFORM_GAP_MAX * (1.0f + relLevel * 0.05f));
+        curY -= rise;
+    }
+    float finalW = randf(185, 245);
+    data.platforms.push_back({curX, curY, finalW, 22, false});
+    highX = curX + finalW;
+    data.gate = {curX + finalW * 0.5f - 28, curY - 76, 56, 76};
+    data.worldW = highX + 900;
+    data.platforms.front().w = data.worldW;
+    data.startX = 84; data.startY = groundY - PLAYER_HEIGHT - 10;
+    for (int i = 0; i < WORLD_STAR_COUNT; i++)
+        data.stars.push_back({randf(0,data.worldW),randf(0,data.worldH),randf(1,3),randf(0.2f,0.8f),randf(0,PI*2)});
+    if (data.platforms.size() > 6) {
+        size_t mid = data.platforms.size() / 2;
+        const Platform& cp = data.platforms[mid];
+        data.checkpoints.push_back({cp.x + cp.w * 0.5f, cp.y});
+    }
+    return data;
+}
+
+LevelData SquareJumpGame::generateNightLevel(int levelNum) {
+    LevelData data;
+    data.theme = NIGHT_THEME; data.isSpring = false; data.season = SEASON_NIGHT;
+    int relLevel = levelNum - 10;
+    int pfCount = PLATFORM_COUNT_MIN + (std::rand() % (PLATFORM_COUNT_MAX - PLATFORM_COUNT_MIN + 1));
+    float avgRise = (PLATFORM_RISE_MIN + PLATFORM_RISE_MAX) * 0.5f;
+    data.worldH = static_cast<float>(screenH) + pfCount * avgRise + 340;
+    float groundY = data.worldH - 44;
+    data.platforms.push_back({0, groundY, std::max(static_cast<float>(screenW)+600, 5000.0f), 44, true});
+    float curX = 220, curY = groundY - 100, highX = 0;
+    int spikeCount = 2 + relLevel;
+    int fakeCount  = 1 + relLevel / 2;
+    int fanTarget  = 3 + relLevel / 2;
+    int fakeAdded = 0, spikeAdded = 0, fansPlaced = 0;
+    for (int i = 0; i < pfCount - 1; i++) {
+        float pw = randf(PLATFORM_WIDTH_MIN, PLATFORM_WIDTH_MAX);
+        bool makeFake = fakeAdded < fakeCount && i > 0 && (std::rand() % 3 == 0);
+        Platform pf{};
+        pf.x = curX; pf.y = curY; pf.w = pw; pf.h = 22;
+        pf.isFake = makeFake;
+        if (makeFake) fakeAdded++;
+        data.platforms.push_back(pf);
+        highX = curX + pw;
+        if (spikeAdded < spikeCount && i % 2 == 0) {
+            int numSpikes = 1 + std::rand() % 3;
+            for (int s = 0; s < numSpikes; s++) {
+                Spike sp{};
+                sp.x = curX + randf(10, pw - 30);
+                sp.y = curY - 18;
+                sp.w = 18; sp.h = 18;
+                sp.damage = SPIKE_DAMAGE;
+                data.spikes.push_back(sp);
+                spikeAdded++;
+            }
+        }
+        bool placeFan = fansPlaced < fanTarget && (i % 2 == 1 || std::rand() % 3 == 0);
+        if (placeFan) {
+            bool blowLeft = (std::rand() % 2 == 0);
+            Fan fan{};
+            fan.w = 46; fan.h = 46;
+            float gapStart = curX + pw;
+            float nextGap = randf(PLATFORM_GAP_MIN, PLATFORM_GAP_MAX);
+            fan.x = blowLeft
+                ? gapStart + nextGap * 0.6f
+                : gapStart + nextGap * 0.15f;
+            fan.y = curY - randf(10, 100);
+            fan.reverse = true;
+            fan.forceX = blowLeft
+                ? -(FAN_FORCE_NIGHT * (1.0f + relLevel * 0.1f))
+                :  (FAN_FORCE_NIGHT * (1.0f + relLevel * 0.1f));
+            fan.rangeW = FAN_RANGE_W * 0.95f;
+            fan.rangeH = FAN_RANGE_H;
+            data.fans.push_back(fan);
+            fansPlaced++;
+        }
+        float rise = randf(PLATFORM_RISE_MIN, PLATFORM_RISE_MAX);
+        if (curY - rise < 120) rise = randf(20, 38);
+        curX += pw + randf(PLATFORM_GAP_MIN, PLATFORM_GAP_MAX * (1.1f + relLevel * 0.04f));
+        curY -= rise;
+    }
+    float finalW = randf(185, 245);
+    data.platforms.push_back({curX, curY, finalW, 22, false});
+    highX = curX + finalW;
+    data.gate = {curX + finalW * 0.5f - 28, curY - 76, 56, 76};
+    data.worldW = highX + 900;
+    data.platforms.front().w = data.worldW;
+    data.startX = 84; data.startY = groundY - PLAYER_HEIGHT - 10;
+    for (int i = 0; i < WORLD_STAR_COUNT; i++)
+        data.stars.push_back({randf(0,data.worldW),randf(0,data.worldH),randf(1,3),randf(0.2f,0.8f),randf(0,PI*2)});
+    if (data.platforms.size() > 6) {
+        size_t mid = data.platforms.size() / 2;
+        const Platform& cp = data.platforms[mid];
+        data.checkpoints.push_back({cp.x + cp.w * 0.5f, cp.y});
+    }
+    return data;
+}
+
 LevelData SquareJumpGame::generateSummerLevel(int levelNum) {
     LevelData data;
     data.theme=SUMMER_THEME; data.season=SEASON_SUMMER;
     int relLevel=levelNum-30;
+    data.tsunamiSpawnTimer = TSUNAMI_WAVE_INTERVAL;
 
     int pfCount=PLATFORM_COUNT_MIN+(std::rand()%(PLATFORM_COUNT_MAX-PLATFORM_COUNT_MIN+1));
     data.worldH=static_cast<float>(screenH)+280.0f;
@@ -228,6 +364,19 @@ void SquareJumpGame::updateBuoys(bool qPressed) {
     for (int bi=0;bi<static_cast<int>(levelData.platforms.size());bi++) {
         Platform& pf=levelData.platforms[bi];
         if (!pf.isBuoy||pf.buoyGone) continue;
+
+        if (pf.buoySinkTimer > 0) {
+            pf.buoySinkTimer--;
+            float sinkT = 1.0f - static_cast<float>(pf.buoySinkTimer) / BUOY_SINK_DURATION;
+            float sinkDepth = BUOY_SINK_DEPTH * std::sin(sinkT * PI);
+            float oldY = pf.y;
+            pf.y = levelData.waterLineY + sinkDepth - pf.h * 0.1f;
+            pf.buoyVy = pf.y - oldY;
+            pf.buoyVx *= 0.88f;
+            pf.x += pf.buoyVx;
+            continue;
+        }
+
         float oldX=pf.x, oldY=pf.y;
         float centerX=pf.baseX+pf.w*0.5f;
         float shoreFactor=1.0f-clampf((centerX-getSummerShoreX())/SUMMER_WAVE_SHORE_RANGE,0.0f,1.0f);
@@ -238,6 +387,63 @@ void SquareJumpGame::updateBuoys(bool qPressed) {
         pf.buoyVx=pf.x-oldX;
         pf.buoyVy=pf.y-oldY;
         pf.buoyActivated=false;
+    }
+}
+
+void SquareJumpGame::updateTsunamiWaves() {
+    float shoreX = getSummerShoreX();
+    float worldRange = levelData.worldW * 0.75f;
+
+    levelData.tsunamiSpawnTimer--;
+    if (levelData.tsunamiSpawnTimer <= 0) {
+        TsunamiWave tw{};
+        tw.x = levelData.worldW - 60.0f;
+        tw.speed = TSUNAMI_WAVE_SPEED + randf(0, 1.2f);
+        tw.active = true;
+        tw.hitCooldown = 0;
+        levelData.tsunamiWaves.push_back(tw);
+        levelData.tsunamiSpawnTimer = TSUNAMI_WAVE_INTERVAL + static_cast<int>(randf(-60, 60));
+    }
+
+    for (int i = static_cast<int>(levelData.tsunamiWaves.size()) - 1; i >= 0; i--) {
+        TsunamiWave& tw = levelData.tsunamiWaves[i];
+        if (!tw.active) { levelData.tsunamiWaves.erase(levelData.tsunamiWaves.begin() + i); continue; }
+        tw.x -= tw.speed;
+        if (tw.hitCooldown > 0) tw.hitCooldown--;
+        float distToShore = std::max(0.0f, tw.x - shoreX);
+        float progress = 1.0f - clampf(distToShore / worldRange, 0.0f, 1.0f);
+        float waveH = TSUNAMI_WAVE_BASE_H + progress * progress * TSUNAMI_WAVE_MAX_H;
+
+        for (Platform& pf : levelData.platforms) {
+            if (!pf.isBuoy || pf.buoyGone || pf.buoySinkTimer > 0) continue;
+            float buoyCX = pf.x + pf.w * 0.5f;
+            if (std::fabs(buoyCX - tw.x) < waveH * 1.8f) {
+                pf.buoySinkTimer = BUOY_SINK_DURATION;
+                pf.buoyVx = -tw.speed * 1.2f;
+                pf.buoyVy = -waveH * 0.12f;
+                for (int p = 0; p < 10; p++)
+                    particles.push_back({buoyCX - camX + randf(-20,20), pf.y - camY + randf(-10,5),
+                                         randf(-3,3), randf(-5,-1), randf(18,28), randf(18,28),
+                                         randf(2,5), {200,230,255,220}});
+            }
+        }
+
+        float px = player.x + player.width * 0.5f;
+        float py = player.y + player.height;
+        if (tw.hitCooldown <= 0 && std::fabs(px - tw.x) < waveH * 0.9f
+            && py > levelData.waterLineY - waveH * 0.6f) {
+            float pushDir = (px > tw.x) ? 1.0f : -1.0f;
+            player.vx += pushDir * waveH * 0.18f;
+            player.vy -= waveH * 0.08f;
+            tw.hitCooldown = 40;
+            if (waveH > 35.0f) takeDamage(8);
+            for (int p = 0; p < 14; p++)
+                particles.push_back({player.x + player.width*0.5f + randf(-12,12),
+                                     player.y + randf(-10,8), randf(-4,4), randf(-5,-1),
+                                     randf(14,24), randf(14,24), randf(2,4), {180,220,255,200}});
+        }
+
+        if (tw.x < shoreX - 150.0f) tw.active = false;
     }
 }
 
@@ -263,6 +469,7 @@ void SquareJumpGame::updateSummer(const bool* keys) {
     updateBuoys(false);
     resolvePlayerCollisions();
     resolvePlayerBuoyCollisions();
+    updateTsunamiWaves();
 
     if (player.y>levelData.worldH+80){takeDamage(25);respawnAtCheckpoint();}
 

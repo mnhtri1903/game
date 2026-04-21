@@ -102,6 +102,8 @@ private:
     float getSummerWavePush(float worldX) const;
 
     LevelData generateLevel(int levelNum);
+    LevelData generateDayLevel(int levelNum);
+    LevelData generateNightLevel(int levelNum);
     LevelData generateSpringLevel(int levelNum);
     LevelData generateSummerLevel(int levelNum);
     LevelData generateAutumnLevel(int levelNum);
@@ -125,12 +127,19 @@ private:
     void updateChildNpcAnim();
 
     void updatePlaying(const bool* keys);
+    void updateDay(const bool* keys);
+    void updateNight(const bool* keys);
     void updateSummer(const bool* keys);
     void updateAutumn(const bool* keys);
     void updateWinter(const bool* keys);
     void updateDesert(const bool* keys);
     void updateMarket(const bool* keys);
     void updateShop(float mx, float my);
+
+    void updateFans();
+    void updateFakePlatforms();
+    void updateSpikes();
+    void updateTsunamiWaves();
 
     void releaseChargedJump(bool isDesert=false);
     void resolvePlayerCollisions();
@@ -149,6 +158,7 @@ private:
     void spawnPurchaseBurst(float x, float y);
     void spawnDamageBurst();
     void spawnSnowParticle();
+    void spawnWindParticle(float x, float y, float vx, const SDL_Color& c);
 
     SDL_FRect menuPrimaryBtnRect()  const;
     SDL_FRect menuNewGameBtnRect()  const;
@@ -183,6 +193,8 @@ private:
     void drawParallaxStars(const std::vector<Star>& stars,float wW,float wH);
     void drawMenuBackground();
     void drawWorldBackground();
+    void drawDayBackground();
+    void drawNightBackground();
     void drawSpringBackdrop();
     void drawSummerBackground();
     void drawAutumnBackground();
@@ -202,6 +214,9 @@ private:
     void drawPlatforms();
     void drawWaterZones();
     void drawSnowZones();
+
+    void drawFans();
+    void drawSpikes();
 
     void drawSpringNpc();
     void drawChildNpcs();

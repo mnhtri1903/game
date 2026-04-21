@@ -166,16 +166,20 @@ void SquareJumpGame::loadGame() {
 }
 
 int SquareJumpGame::getSeasonFromLevel(int level) const {
-    if (level<=30) return SEASON_SPRING;
-    if (level<=60) return SEASON_SUMMER;
-    if (level<=90) return SEASON_AUTUMN;
+    if (level<=10)  return SEASON_DAY;
+    if (level<=20)  return SEASON_NIGHT;
+    if (level<=30)  return SEASON_SPRING;
+    if (level<=60)  return SEASON_SUMMER;
+    if (level<=90)  return SEASON_AUTUMN;
     if (level<=120) return SEASON_WINTER;
     return SEASON_DESERT;
 }
 
 Theme SquareJumpGame::themeForLevel(int level) const {
     switch(getSeasonFromLevel(level)) {
-        case SEASON_SPRING: return (level<=10)?DAY_THEME:(level<=20)?NIGHT_THEME:SPRING_THEME;
+        case SEASON_DAY:    return DAY_THEME;
+        case SEASON_NIGHT:  return NIGHT_THEME;
+        case SEASON_SPRING: return SPRING_THEME;
         case SEASON_SUMMER: return SUMMER_THEME;
         case SEASON_AUTUMN: return AUTUMN_THEME;
         case SEASON_WINTER: return WINTER_THEME;
@@ -188,6 +192,7 @@ void SquareJumpGame::resetSeasonStats(int s) {
     if (s==SEASON_SUMMER) player.heat=0;
     if (s==SEASON_AUTUMN) player.hunger=HUNGER_MAX;
     if (s==SEASON_DESERT) { player.thirst=THIRST_MAX; player.jumpsLeft=DESERT_JUMP_MAX; player.camelIndex=-1; }
+    if (s==SEASON_DAY||s==SEASON_NIGHT) { player.spinTimer=0; }
 }
 
 void SquareJumpGame::beginNewGame() {
@@ -323,6 +328,8 @@ Petal SquareJumpGame::createPetal(bool randomY) const {
 
 LevelData SquareJumpGame::generateLevel(int levelNum) {
     switch(getSeasonFromLevel(levelNum)) {
+        case SEASON_DAY:    return generateDayLevel(levelNum);
+        case SEASON_NIGHT:  return generateNightLevel(levelNum);
         case SEASON_SUMMER: return generateSummerLevel(levelNum);
         case SEASON_AUTUMN: return generateAutumnLevel(levelNum);
         case SEASON_WINTER: return generateWinterLevel(levelNum);
@@ -333,7 +340,7 @@ LevelData SquareJumpGame::generateLevel(int levelNum) {
 
 LevelData SquareJumpGame::generateSpringLevel(int levelNum) {
     LevelData data;
-    data.theme=themeForLevel(levelNum); data.isSpring=(levelNum>=21); data.season=SEASON_SPRING;
+    data.theme=themeForLevel(levelNum); data.isSpring=true; data.season=SEASON_SPRING;
     int pfCount=PLATFORM_COUNT_MIN+(std::rand()%(PLATFORM_COUNT_MAX-PLATFORM_COUNT_MIN+1));
     float avgRise=(PLATFORM_RISE_MIN+PLATFORM_RISE_MAX)*0.5f;
     data.worldH=static_cast<float>(screenH)+pfCount*avgRise+280;
@@ -596,6 +603,10 @@ void SquareJumpGame::spawnSnowParticle() {
     particles.push_back({randf(0,static_cast<float>(screenW)+camX),-10+camY,
                          randf(-2,0.5f),randf(1,3),randf(80,120),randf(80,120),randf(2,5),{220,235,255,200}});
 }
+void SquareJumpGame::spawnWindParticle(float x, float y, float vxDir, const SDL_Color& c) {
+    particles.push_back({x, y+randf(-20,20), vxDir+randf(-0.5f,0.5f), randf(-0.5f,0.5f),
+                         randf(20,35), randf(20,35), randf(1.5f,4.0f), c});
+}
 
 void SquareJumpGame::resolvePlayerCollisions() {
     player.onGround=false;
@@ -603,6 +614,8 @@ void SquareJumpGame::resolvePlayerCollisions() {
         if (pf.buoyGone) continue;
         if (!pf.mooncakeActive&&pf.isMooncake) continue;
         if (pf.isBuoy) continue;
+        if (pf.isSpike) continue;
+        if (pf.isFake && pf.fakeSunk) continue;
         float pcx=player.x+player.width*0.5f, pcy=player.y+player.height*0.5f;
         float fcx=pf.x+pf.w*0.5f, fcy=pf.y+pf.h*0.5f;
         float dx=pcx-fcx, dy=pcy-fcy;
@@ -653,6 +666,7 @@ void SquareJumpGame::resolvePlayerBuoyCollisions() {
     for (int bi=0;bi<static_cast<int>(levelData.platforms.size());bi++) {
         Platform& pf=levelData.platforms[bi];
         if (!pf.isBuoy||pf.buoyGone) continue;
+        if (pf.buoySinkTimer > 0) continue;
         float pcx=player.x+player.width*0.5f, pcy=player.y+player.height*0.5f;
         float fcx=pf.x+pf.w*0.5f, fcy=pf.y+pf.h*0.5f;
         float dx=pcx-fcx, dy=pcy-fcy;
@@ -829,6 +843,8 @@ void SquareJumpGame::update() {
     if (state==GameState::Market) updateMarket(keys);
     else {
         switch(getSeasonFromLevel(currentLevel)) {
+            case SEASON_DAY:    updateDay(keys);     break;
+            case SEASON_NIGHT:  updateNight(keys);   break;
             case SEASON_SPRING: updatePlaying(keys); break;
             case SEASON_SUMMER: updateSummer(keys);  break;
             case SEASON_AUTUMN: updateAutumn(keys);  break;
@@ -857,4 +873,135 @@ bool SquareJumpGame::pointInRect(float x, float y, const SDL_FRect& r) const {
 }
 bool SquareJumpGame::intersects(float ax,float ay,float aw,float ah,float bx,float by,float bw,float bh) const {
     return ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by;
+}
+
+void SquareJumpGame::updateFans() {
+    for (Fan& fan : levelData.fans) {
+        fan.animTick++;
+        float px = player.x + player.width * 0.5f;
+        float py = player.y + player.height * 0.5f;
+        float fanCX = fan.x + fan.w * 0.5f;
+        float fanCY = fan.y + fan.h * 0.5f;
+        float blowDir = (fan.forceX > 0) ? 1.0f : -1.0f;
+        float fanEdgeX = (blowDir > 0) ? (fan.x + fan.w) : fan.x;
+        float distAlongWind = blowDir * (px - fanEdgeX);
+        bool inWindCone = distAlongWind >= 0 && distAlongWind < fan.rangeW;
+        bool inWindHeight = std::fabs(py - fanCY) < fan.rangeH * 0.5f;
+        if (inWindCone && inWindHeight) {
+            float falloff = 1.0f - clampf(distAlongWind / fan.rangeW, 0.0f, 1.0f);
+            falloff = falloff * falloff;
+            float impulse = std::fabs(fan.forceX) * falloff * 0.11f;
+            player.vx += blowDir * impulse;
+            player.vx = clampf(player.vx, -28.0f, 28.0f);
+            if (player.onGround && std::fabs(player.vx) > 2.0f)
+                player.vx *= 0.96f;
+            if (ticks % 3 == 0 && falloff > 0.1f) {
+                float spawnX = fanEdgeX + blowDir * randf(0, 20);
+                float spawnY = fanCY + randf(-fan.rangeH * 0.35f, fan.rangeH * 0.35f);
+                SDL_Color wc = fan.reverse
+                    ? SDL_Color{180, 80, 255, 170}
+                    : SDL_Color{180, 220, 255, 150};
+                spawnWindParticle(spawnX, spawnY, blowDir * std::fabs(fan.forceX) * falloff * 0.5f, wc);
+            }
+            if (fan.reverse && falloff > 0.45f && player.spinTimer <= 0) {
+                player.spinTimer = SPIN_TICKS;
+                player.vx *= -1.3f;
+                player.vy = std::min(player.vy, -3.5f);
+                spawnDamageBurst();
+            }
+        }
+    }
+    if (player.spinTimer > 0) {
+        player.spinTimer--;
+        if (ticks % 2 == 0) {
+            particles.push_back({player.x + player.width*0.5f + randf(-16,16),
+                                  player.y + player.height*0.5f + randf(-16,16),
+                                  randf(-3,3), randf(-3,3), 20, 20, randf(2,5),
+                                  SDL_Color{180,60,255,210}});
+        }
+    }
+}
+
+void SquareJumpGame::updateDay(const bool* keys) {
+    bool spaceDown = keys[SDL_SCANCODE_SPACE];
+    int effCharge = upgrades.effectiveMaxCharge();
+
+    resolvePlayerCollisions();
+
+    if (player.onGround) { player.vx *= GROUND_FRICTION; if (std::fabs(player.vx) < 0.1f) player.vx = 0; }
+    else player.vx *= AIR_FRICTION;
+
+    updateFans();
+
+    if (spaceDown) {
+        if (player.onGround) {
+            if (!player.charging) { player.charging = true; player.chargeType = 1; player.chargeTime = 0; }
+        } else if (!player.charging && ticks - player.lastAirJumpTick >= AIR_JUMP_COOLDOWN) {
+            player.charging = true; player.chargeType = 2; player.chargeTime = 0;
+        }
+        if (player.charging) {
+            player.chargeTime = std::min(player.chargeTime + 1, effCharge);
+            if (ticks % 3 == 0) spawnChargeParticle(player.chargeTime >= effCharge ? currentTheme.gate : SDL_Color{255,255,255,255});
+        }
+    }
+    if (!spaceDown && player.charging) releaseChargedJump();
+
+    if (!player.onGround) {
+        if (std::fabs(player.vy) < GLIDE_THRESHOLD) player.vy += GRAVITY * GLIDE_FACTOR;
+        else player.vy += GRAVITY;
+    }
+    if (player.vy > 18) player.vy = 18;
+    player.x += player.vx; player.y += player.vy;
+    player.x = std::max(0.0f, player.x);
+    if (player.x > levelData.gate.x + 800) { player.x = levelData.gate.x + 800; player.vx = 0; }
+
+    resolvePlayerCollisions();
+    if (player.y > levelData.worldH + 80) { takeDamage(20); respawnAtCheckpoint(); }
+    updateCheckpoints();
+    player.prevSpace = spaceDown;
+    if (player.invincible && ticks - player.lastInvincibleTick >= INVINCIBLE_DURATION) player.invincible = false;
+    if (player.damageFlashTimer > 0) player.damageFlashTimer--;
+}
+
+void SquareJumpGame::updateNight(const bool* keys) {
+    bool spaceDown = keys[SDL_SCANCODE_SPACE];
+    int effCharge = upgrades.effectiveMaxCharge();
+
+    resolvePlayerCollisions();
+
+    if (player.onGround) { player.vx *= GROUND_FRICTION; if (std::fabs(player.vx) < 0.1f) player.vx = 0; }
+    else player.vx *= AIR_FRICTION;
+
+    updateFans();
+    updateFakePlatforms();
+    updateSpikes();
+
+    if (spaceDown) {
+        if (player.onGround) {
+            if (!player.charging) { player.charging = true; player.chargeType = 1; player.chargeTime = 0; }
+        } else if (!player.charging && ticks - player.lastAirJumpTick >= AIR_JUMP_COOLDOWN) {
+            player.charging = true; player.chargeType = 2; player.chargeTime = 0;
+        }
+        if (player.charging) {
+            player.chargeTime = std::min(player.chargeTime + 1, effCharge);
+            if (ticks % 3 == 0) spawnChargeParticle(player.chargeTime >= effCharge ? currentTheme.gate : SDL_Color{142,45,226,255});
+        }
+    }
+    if (!spaceDown && player.charging) releaseChargedJump();
+
+    if (!player.onGround) {
+        if (std::fabs(player.vy) < GLIDE_THRESHOLD) player.vy += GRAVITY * GLIDE_FACTOR;
+        else player.vy += GRAVITY;
+    }
+    if (player.vy > 18) player.vy = 18;
+    player.x += player.vx; player.y += player.vy;
+    player.x = std::max(0.0f, player.x);
+    if (player.x > levelData.gate.x + 800) { player.x = levelData.gate.x + 800; player.vx = 0; }
+
+    resolvePlayerCollisions();
+    if (player.y > levelData.worldH + 80) { takeDamage(25); respawnAtCheckpoint(); }
+    updateCheckpoints();
+    player.prevSpace = spaceDown;
+    if (player.invincible && ticks - player.lastInvincibleTick >= INVINCIBLE_DURATION) player.invincible = false;
+    if (player.damageFlashTimer > 0) player.damageFlashTimer--;
 }
